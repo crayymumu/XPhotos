@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { useSwrHydrated } from '~/hooks/use-swr-hydrated'
-import { ArrowDown10, ArrowUp, ArrowDown, Pin } from 'lucide-react'
+import { ArrowUp, ArrowDown, Pin } from 'lucide-react'
 import { toast } from 'sonner'
 import type { AlbumType } from '~/types'
 import type { HandleProps } from '~/types/props'

@@ -15,7 +15,7 @@ function normalizeSortValue(sort: number | undefined): number {
  * @param album 相册数据
  */
 export async function insertAlbums(album: AlbumType) {
-  return await db.albums.create({
+  const result = await db.albums.create({
     data: {
       name: album.name,
       album_value: album.album_value,
@@ -30,6 +30,8 @@ export async function insertAlbums(album: AlbumType) {
       cover: album.cover,
     },
   })
+  invalidateAlbumsListCache()
+  return result
 }
 
 /**
@@ -37,13 +39,15 @@ export async function insertAlbums(album: AlbumType) {
  * @param id 相册 ID
  */
 export async function deleteAlbum(id: string) {
-  return await db.albums.update({
+  const result = await db.albums.update({
     where: { id },
     data: {
       del: 1,
       updatedAt: new Date(),
     },
   })
+  invalidateAlbumsListCache()
+  return result
 }
 
 /**
@@ -77,7 +81,6 @@ export async function updateAlbum(album: AlbumType) {
       },
     })
 
-    // 如果相册路由发生变化，更新关联表
     if (existingAlbum.album_value !== album.album_value) {
       await tx.imagesAlbumsRelation.updateMany({
         where: { album_value: existingAlbum.album_value },
@@ -85,6 +88,7 @@ export async function updateAlbum(album: AlbumType) {
       })
     }
   })
+  invalidateAlbumsListCache()
 }
 
 /**
@@ -93,13 +97,15 @@ export async function updateAlbum(album: AlbumType) {
  * @param show 显示状态：0=显示，1=隐藏
  */
 export async function updateAlbumShow(id: string, show: number) {
-  return await db.albums.update({
+  const result = await db.albums.update({
     where: { id },
     data: {
       show,
       updatedAt: new Date(),
     },
   })
+  invalidateAlbumsListCache()
+  return result
 }
 
 /**
