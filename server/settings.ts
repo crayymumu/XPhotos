@@ -4,7 +4,7 @@ import { fetchConfigsByKeys } from '~/lib/db/query/configs'
 import type { Config } from '~/types'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { updateAListConfig, updateCustomInfo, updateR2Config, updateS3Config } from '~/lib/db/operate/configs'
+import { updateAListConfig, updateCustomInfo, updateR2Config, updateS3Config, updateOSSConfig } from '~/lib/db/operate/configs'
 
 import { fetchTagsList, fetchTagsTree, fetchTagsByCategory } from '~/lib/db/query/tags'
 import { createTag, updateTag, deleteTag, deleteTagAndChildren } from '~/lib/db/operate/tags'
@@ -141,8 +141,8 @@ app.get('/get-custom-info', async (c) => {
       'about_ins_url',
       'about_xhs_url',
       'about_weibo_url',
-         'about_github_url',
-         'about_gallery_images',
+      'about_github_url',
+      'about_gallery_images',
     ])
     return c.json(data)
   } catch (error) {
@@ -177,6 +177,21 @@ app.get('/s3-info', async (c) => {
     's3_cdn',
     's3_cdn_url',
     's3_direct_download'
+  ])
+  return c.json(data)
+})
+
+app.get('/oss-info', async (c) => {
+  const data = await fetchConfigsByKeys([
+    'oss_accesskey_id',
+    'oss_accesskey_secret',
+    'oss_region',
+    'oss_endpoint',
+    'oss_bucket',
+    'oss_storage_folder',
+    'oss_cdn',
+    'oss_cdn_url',
+    'oss_direct_download'
   ])
   return c.json(data)
 })
@@ -309,6 +324,100 @@ app.put('/update-s3-info', async (c) => {
 
   const data = await updateS3Config({ accesskeyId, accesskeySecret, region, endpoint, bucket, storageFolder, forcePathStyle, s3ForceServerUpload, s3Cdn, s3CdnUrl, s3DirectDownload })
   return c.json(data)
+})
+
+app.put('/update-oss-info', async (c) => {
+  const query = await c.req.json()
+
+  const ossAccesskeyId = query?.find((item: Config) => item.config_key === 'oss_accesskey_id').config_value
+  const ossAccesskeySecret = query?.find((item: Config) => item.config_key === 'oss_accesskey_secret').config_value
+  const ossRegion = query?.find((item: Config) => item.config_key === 'oss_region').config_value
+  const ossEndpoint = query?.find((item: Config) => item.config_key === 'oss_endpoint').config_value
+  const ossBucket = query?.find((item: Config) => item.config_key === 'oss_bucket').config_value
+  const ossStorageFolder = query?.find((item: Config) => item.config_key === 'oss_storage_folder').config_value
+  const ossCdn = query?.find((item: Config) => item.config_key === 'oss_cdn').config_value
+  const ossCdnUrl = query?.find((item: Config) => item.config_key === 'oss_cdn_url').config_value
+  const ossDirectDownload = query?.find((item: Config) => item.config_key === 'oss_direct_download').config_value
+
+  const data = await updateOSSConfig({ ossAccesskeyId, ossAccesskeySecret, ossRegion, ossEndpoint, ossBucket, ossStorageFolder, ossCdn, ossCdnUrl, ossDirectDownload })
+  return c.json(data)
+})
+
+app.get('/validate-oss', async (c) => {
+  try {
+    const keys = [
+      'oss_accesskey_id',
+      'oss_accesskey_secret',
+      'oss_region',
+      'oss_endpoint',
+      'oss_bucket',
+      'oss_storage_folder',
+    ]
+    const configs = await fetchConfigsByKeys(keys)
+    const getVal = (k: string) => configs.find((i: Config) => i.config_key === k)?.config_value || ''
+
+    const accesskeyId = getVal('oss_accesskey_id')
+    const accesskeySecret = getVal('oss_accesskey_secret')
+    const region = getVal('oss_region')
+    const endpoint = getVal('oss_endpoint')
+    const bucket = getVal('oss_bucket')
+    let storageFolder = getVal('oss_storage_folder')
+
+    if (!accesskeyId || !accesskeySecret || !region || !endpoint || !bucket) {
+      throw new HTTPException(400, { message: 'OSS 配置不完整，缺少必要字段' })
+    }
+
+    if (storageFolder === '/') storageFolder = ''
+    if (storageFolder.endsWith('/')) storageFolder = storageFolder.slice(0,-1)
+
+    const ossConfigs: Config[] = [
+      { id: '', config_key: 'accesskey_id', config_value: accesskeyId, detail: '' },
+      { id: '', config_key: 'accesskey_secret', config_value: accesskeySecret, detail: '' },
+      { id: '', config_key: 'region', config_value: region, detail: '' },
+      { id: '', config_key: 'endpoint', config_value: endpoint, detail: '' },
+      { id: '', config_key: 'bucket', config_value: bucket, detail: '' },
+      { id: '', config_key: 'storage_folder', config_value: storageFolder, detail: '' },
+      { id: '', config_key: 'force_path_style', config_value: 'false', detail: '' },
+    ]
+
+    const client = getClient(ossConfigs)
+    const checks: Record<string, string> = {}
+
+    try {
+      await client.send(new HeadBucketCommand({ Bucket: bucket }))
+      checks.headBucket = 'ok'
+    } catch (e: unknown) {
+      checks.headBucket = `error: ${(e as any)?.name || (e as any)?.message || 'unknown'}`
+    }
+
+    const keyPrefix = storageFolder ? `${storageFolder}/` : ''
+    const testKey = `${keyPrefix}picimpact-validate-${Date.now()}.txt`
+    try {
+      await client.send(new PutObjectCommand({ Bucket: bucket, Key: testKey, Body: 'picimpact-validation', ContentType: 'text/plain' }))
+      checks.putObject = 'ok'
+    } catch (e: unknown) {
+      checks.putObject = `error: ${(e as any)?.name || (e as any)?.message || 'unknown'}`
+    }
+
+    try {
+      await client.send(new GetObjectCommand({ Bucket: bucket, Key: testKey }))
+      checks.getObject = 'ok'
+    } catch (e: unknown) {
+      checks.getObject = `error: ${(e as any)?.name || (e as any)?.message || 'unknown'}`
+    }
+
+    try {
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: testKey }))
+      checks.deleteObject = 'ok'
+    } catch (e: unknown) {
+      checks.deleteObject = `error: ${(e as any)?.name || (e as any)?.message || 'unknown'}`
+    }
+
+    return c.json({ code: 200, data: { bucket, endpoint, testKey, checks } })
+  } catch (e: unknown) {
+    const msg = (e as any)?.message || 'OSS 配置验证失败'
+    throw new HTTPException((e as any)?.status || 500, { message: msg, cause: e })
+  }
 })
 
 app.put('/update-custom-info', async (c) => {

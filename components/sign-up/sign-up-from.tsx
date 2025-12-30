@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next-nprogress-bar'
 import { toast } from 'sonner'
-import { SafeParseReturnType, z } from 'zod'
+import { z } from 'zod'
 import { Button } from '~/components/ui/button'
 import { ReloadIcon } from '@radix-ui/react-icons'
 import { cn } from '~/lib/utils'
@@ -52,7 +52,7 @@ export const SignUpForm = ({
       }
     }
 
-  function zHandle(): SafeParseReturnType<string | unknown, string | unknown> {
+  function zHandle(){
     const parsedCredentials = z
       .object({ email: z.string().email(), password: z.string().min(8) })
       .safeParse({ email, password })

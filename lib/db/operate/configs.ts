@@ -69,6 +69,26 @@ export async function updateAListConfig(configs: Record<string, unknown>) {
   `
 }
 
+export async function updateOSSConfig(configs: Record<string, unknown>) {
+  return await db.$executeRaw`
+    UPDATE "public"."configs"
+    SET config_value = CASE
+       WHEN config_key = 'oss_accesskey_id' THEN ${configs.ossAccesskeyId?.toString().trim()}
+       WHEN config_key = 'oss_accesskey_secret' THEN ${configs.ossAccesskeySecret?.toString().trim()}
+       WHEN config_key = 'oss_region' THEN ${configs.ossRegion?.toString().trim()}
+       WHEN config_key = 'oss_endpoint' THEN ${configs.ossEndpoint?.toString().trim()}
+       WHEN config_key = 'oss_bucket' THEN ${configs.ossBucket?.toString().trim()}
+       WHEN config_key = 'oss_storage_folder' THEN ${configs.ossStorageFolder?.toString().trim()}
+       WHEN config_key = 'oss_cdn' THEN ${configs.ossCdn?.toString().trim()}
+       WHEN config_key = 'oss_cdn_url' THEN ${configs.ossCdnUrl?.toString().trim()}
+       WHEN config_key = 'oss_direct_download' THEN ${configs.ossDirectDownload?.toString().trim()}
+       ELSE 'N&A'
+    END,
+        updated_at = NOW()
+    WHERE config_key IN ('oss_accesskey_id', 'oss_accesskey_secret', 'oss_region', 'oss_endpoint', 'oss_bucket', 'oss_storage_folder', 'oss_cdn', 'oss_cdn_url', 'oss_direct_download');
+  `
+}
+
 /**
  * 更新自定义信息
  * @param payload 自定义信息

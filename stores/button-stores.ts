@@ -16,6 +16,8 @@ export type ButtonState = {
   r2Data: Config[]
   aListEdit: boolean
   aListData: Config[]
+  ossEdit: boolean
+  ossData: Config[]
   MasonryView: boolean
   MasonryViewData: ImageType
   MasonryViewDataList: ImageType[]
@@ -39,6 +41,8 @@ export type ButtonActions = {
   setR2EditData: (r2Data: Config[]) => void
   setAListEdit: (aListEdit: boolean) => void
   setAListEditData: (aListData: Config[]) => void
+  setOSSEdit: (ossEdit: boolean) => void
+  setOSSEditData: (ossData: Config[]) => void
   setMasonryView: (masonryView: boolean) => void
   setMasonryViewData: (masonryViewData: ImageType) => void
   setMasonryViewDataList: (masonryViewDataList: ImageType[]) => void
@@ -65,6 +69,8 @@ export const initButtonStore = (): ButtonState => {
     r2Data: [] as Config[],
     aListEdit: false,
     aListData: [] as Config[],
+    ossEdit: false,
+    ossData: [] as Config[],
     MasonryView: false,
     MasonryViewData: {} as ImageType,
     MasonryViewDataList: [] as ImageType[],
@@ -116,6 +122,8 @@ export const createButtonStore = (initState: ButtonState = defaultInitState) => 
         setR2EditData: (r2Data) => set({ r2Data }),
         setAListEdit: (aListEdit) => set({ aListEdit }),
         setAListEditData: (aListData) => set({ aListData }),
+        setOSSEdit: (ossEdit) => set({ ossEdit }),
+        setOSSEditData: (ossData) => set({ ossData }),
         setMasonryView: (MasonryView) => set({ MasonryView }),
         setMasonryViewData: (MasonryViewData) => set({ MasonryViewData }),
         setMasonryViewDataList: (MasonryViewDataList) => set({ MasonryViewDataList }),

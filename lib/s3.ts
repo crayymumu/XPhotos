@@ -8,7 +8,7 @@ function getConfigValue(configs: Config[], key: string): string {
 }
 
 function ensureHttpsUrl(url: string): string {
-  return url.includes('https://') ? url : `https://${url}`
+  return url.startsWith('https://') ? url : `https://${url}`
 }
 
 export function getClient(findConfig: Config[]) {

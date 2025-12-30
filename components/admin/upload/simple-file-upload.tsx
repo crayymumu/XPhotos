@@ -6,192 +6,144 @@ import useSWR from 'swr'
 import { fetcher } from '~/lib/utils/fetcher'
 import type { ExifType, AlbumType, ImageType } from '~/types'
 import Compressor from 'compressorjs'
-import { Cascader as AntCascader, Upload as AntUpload, Button as AntButton, Input as AntInput, Form as AntForm, Modal as AntModal, message as AntMessage, AutoComplete as AntAutoComplete, Tag as AntTag, Card as AntCard, Space as AntSpace, Progress as AntProgress, InputNumber as AntInputNumber, DatePicker as AntDatePicker, theme } from 'antd'
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '~/components/ui/select'
+import { Upload as AntUpload, Button as AntButton, Input as AntInput, Form as AntForm, Modal as AntModal, message as AntMessage, Tag as AntTag, Card as AntCard, Space as AntSpace, Progress as AntProgress, InputNumber as AntInputNumber, DatePicker as AntDatePicker } from 'antd'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '~/components/ui/select'
 import MultipleSelector from '~/components/ui/origin/multiselect'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import zhCN from 'antd/es/date-picker/locale/zh_CN'
 import { CloseOutlined } from '@ant-design/icons'
-// TagInput replaced by Ant Select tags mode
 import { useTranslations } from 'next-intl'
 import { exifReader, uploadFile } from '~/lib/utils/file'
-// RocketIcon removed; submit button moved to top
-// InboxOutlined not used here
-const { Dragger } = AntUpload
 import { UploadIcon } from '~/components/icons/upload'
 import { heicTo, isHeic } from 'heic-to'
 import { encodeBrowserThumbHash } from '~/lib/utils/blurhash-client'
 
-interface UploadResponse {
-  code: number
-  data?: {
-    url: string
-    imageId: string
-    fileName: string
-    key?: string
-  }
+const { Dragger } = AntUpload
+dayjs.locale('zh-cn')
+
+// EXIF 预设配置（存储于 localStorage）
+const EXIF_PRESETS_KEY = 'picimpact_exif_presets'
+const DEFAULT_EXIF_PRESETS = {
+  cameraModels: ['Canon EOS R5','Sony A7 III','Nikon Z7 II','Fujifilm X-T4','iPhone 13 Pro'],
+  shutterSpeeds: ['1/8000','1/4000','1/2000','1/1000','1/500','1/250','1/125','1/60','1/30','1/15','1/8','1/4','1/2','1'],
+  isos: ['50','100','200','400','800','1600','3200','6400'],
+  apertures: ['1.4','1.8','2.0','2.8','3.5','4.0','5.6','8.0','11','16'],
 }
 
-interface TagNode {
-  category: string
-  children: { name: string }[]
-}
-
-interface AlistStorage {
-  mount_path: string
-}
+interface FileWithKey extends File { __key?: string }
+interface UploadResponse { code: number; data?: { url: string; imageId: string; fileName: string; key?: string } }
+interface TagNode { category: string; children: { name: string }[] }
+interface AlistStorage { mount_path: string }
 
 export default function SimpleFileUpload() {
-  dayjs.locale('zh-cn')
+  const t = useTranslations()
   const referenceInputRef = useRef<HTMLInputElement | null>(null)
-  const [alistStorage, setAlistStorage] = useState<AlistStorage[]>([])
-  const [storageSelect, setStorageSelect] = useState(false)
+
+  // ========== 状态定义 ==========
+  // 存储配置
   const [storage, setStorage] = useState('s3')
   const [album, setAlbum] = useState('')
+  const [alistStorage, setAlistStorage] = useState<AlistStorage[]>([])
   const [alistMountPath, setAlistMountPath] = useState('')
-  const [exif, setExif] = useState({} as ExifType)
-  const [title, setTitle] = useState('')
-  const [imageId, setImageId] = useState('')
-  const [imageName, setImageName] = useState('')
+  const [storageSelect, setStorageSelect] = useState(false)
+
+  // 上传状态
+  const [files, setFiles] = useState<FileWithKey[]>([])
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [autoUploadedFor, setAutoUploadedFor] = useState<string | null>(null)
+  const [showMissingModal, setShowMissingModal] = useState(false)
+
+  // 图片数据
   const [url, setUrl] = useState('')
   const [previewUrl, setPreviewUrl] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
-  const [originalKey, setOriginalKey] = useState<string>('')
-  const [, setPreviewKey] = useState<string>('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
+  const [originalKey, setOriginalKey] = useState('')
+  const [, setPreviewKey] = useState('')
+  const [imageId, setImageId] = useState('')
+  const [imageName, setImageName] = useState('')
+  const [title, setTitle] = useState('')
+  const [detail, setDetail] = useState('')
+  const [hash, setHash] = useState('')
   const [width, setWidth] = useState(0)
   const [height, setHeight] = useState(0)
   const [lat, setLat] = useState('')
   const [lon, setLon] = useState('')
-  const [detail, setDetail] = useState('')
-  const [hash, setHash] = useState('')
-  const [imageLabels, setImageLabels] = useState([] as string[])
-  const [autoUploadedFor, setAutoUploadedFor] = useState<string | null>(null)
-  const [showMissingModal, setShowMissingModal] = useState(false)
-  
-  const t = useTranslations()
 
-  const { data, isLoading } = useSWR('/api/v1/albums/get', fetcher)
-  const { data: configs } = useSWR<{ config_key: string, config_value: string }[]>('/api/v1/settings/get-custom-info', fetcher)
-
-  const previewImageMaxWidthLimitSwitchOn = configs?.find(config => config.config_key === 'preview_max_width_limit_switch')?.config_value === '1'
-  const previewImageMaxWidthLimit = parseInt(configs?.find(config => config.config_key === 'preview_max_width_limit')?.config_value || '0')
-  const previewCompressQuality = parseFloat(configs?.find(config => config.config_key === 'preview_quality')?.config_value || '0.2')
+  // EXIF 与标签
+  const [exif, setExif] = useState({} as ExifType)
+  const [exifPresets, setExifPresets] = useState(DEFAULT_EXIF_PRESETS)
+  const [isPresetModalOpen, setIsPresetModalOpen] = useState(false)
+  const [editingPresetsText, setEditingPresetsText] = useState({ cameraModels: '', shutterSpeeds: '', isos: '', apertures: '' })
+  const [imageLabels, setImageLabels] = useState<string[]>([])
   const [presetTags, setPresetTags] = useState<string[]>([])
   const [tagTree, setTagTree] = useState<TagNode[]>([])
   const [primarySelect, setPrimarySelect] = useState<string | null>(null)
   const [secondarySelect, setSecondarySelect] = useState<string[]>([])
   const [cascaderValue, setCascaderValue] = useState<string[]>([])
-  // EXIF presets (editable via modal; persisted in localStorage)
-  const presetsStorageKey = 'picimpact_exif_presets'
-  const defaultPresets = {
-    cameraModels: ['Canon EOS R5','Sony A7 III','Nikon Z7 II','Fujifilm X-T4','iPhone 13 Pro'],
-    shutterSpeeds: ['1/8000','1/4000','1/2000','1/1000','1/500','1/250','1/125','1/60','1/30','1/15','1/8','1/4','1/2','1'],
-    isos: ['50','100','200','400','800','1600','3200','6400'],
-    apertures: ['1.4','1.8','2.0','2.8','3.5','4.0','5.6','8.0','11','16'],
-  }
-  const [exifPresets, setExifPresets] = useState(() => {
-    try {
-      const raw = localStorage.getItem(presetsStorageKey)
-      if (raw) return JSON.parse(raw)
-    } catch {}
-    return defaultPresets
-  })
-  const [isPresetModalOpen, setIsPresetModalOpen] = useState(false)
-  const [editingPresetsText, setEditingPresetsText] = useState({ cameraModels: '', shutterSpeeds: '', isos: '', apertures: '' })
 
-  // 拉取后端预设标签 + 树形结构
+  // ========== 数据获取 ==========
+  const { data } = useSWR('/api/v1/albums/get', fetcher)
+  const { data: configs } = useSWR<{ config_key: string, config_value: string }[]>('/api/v1/settings/get-custom-info', fetcher)
+
+  // 预览图压缩配置（从系统设置读取）
+  const previewMaxWidthOn = configs?.find(c => c.config_key === 'preview_max_width_limit_switch')?.config_value === '1'
+  const previewMaxWidth = parseInt(configs?.find(c => c.config_key === 'preview_max_width_limit')?.config_value || '0')
+  const previewQuality = parseFloat(configs?.find(c => c.config_key === 'preview_quality')?.config_value || '0.2')
+
+  // ========== 初始化 ==========
   useEffect(() => {
-    fetcher('/api/v1/settings/tags/get')
-      .then((res: { data: { name: string }[] }) => {
-        if (res?.data) setPresetTags(res.data.map((t) => t.name))
-      })
-      .catch(() => {})
-
-    fetcher('/api/v1/settings/tags/get?tree=true')
-      .then((res: { data: TagNode[] }) => {
-        if (res?.data) setTagTree(res.data)
-      })
-      .catch(() => {})
+    try {
+      const raw = localStorage.getItem(EXIF_PRESETS_KEY)
+      if (raw) setExifPresets(JSON.parse(raw))
+    } catch {}
   }, [])
 
-  // 点击预设标签：已存在则移除，否则加入
+  // 拉取预设标签和标签树
+  useEffect(() => {
+    Promise.all([
+      fetcher('/api/v1/settings/tags/get'),
+      fetcher('/api/v1/settings/tags/get?tree=true'),
+    ]).then(([tagsRes, treeRes]: [{ data: { name: string }[] }, { data: TagNode[] }]) => {
+      if (tagsRes?.data) setPresetTags(tagsRes.data.map(t => t.name))
+      if (treeRes?.data) setTagTree(treeRes.data)
+    }).catch(() => {})
+  }, [])
+
+  // 切换预设标签（点击加入/移除）
   function togglePresetTag(tag: string) {
-    if (!tag || typeof tag !== 'string' || tag.trim() === '') return
-    
-    const trimmedTag = tag.trim()
-    
-    if (!Array.isArray(imageLabels)) {
-      setImageLabels([trimmedTag])
-      return
-    }
-    
-    // 检查是否已存在（忽略大小写和首尾空格）
-    const existingIndex = imageLabels.findIndex(t => t.trim().toLowerCase() === trimmedTag.toLowerCase())
-    
-    if (existingIndex >= 0) {
-      // 已存在，移除
-      setImageLabels(imageLabels.filter((_, i) => i !== existingIndex))
-    } else {
-      // 不存在，添加（确保去重）
-      const newLabels = [...imageLabels, trimmedTag]
-      const uniqueLabels = Array.from(new Set(newLabels.map(v => v.trim()))).filter(Boolean)
-      setImageLabels(uniqueLabels)
-    }
+    const trimmed = tag?.trim()
+    if (!trimmed) return
+    const exists = imageLabels.some(t => t.trim().toLowerCase() === trimmed.toLowerCase())
+    setImageLabels(exists 
+      ? imageLabels.filter(t => t.trim().toLowerCase() !== trimmed.toLowerCase())
+      : [...new Set([...imageLabels, trimmed])])
   }
 
-  // 当选择级联标签时，自动将所选标签加入到标签输入框（不移除已有用户标签）
-  useEffect(() => {
-    if (!cascaderValue || cascaderValue.length === 0) {
-      // 如果级联选择器被清空，不删除标签（因为可能是用户自己输入的）
-      return
-    }
-    const [p, ...children] = cascaderValue
-    // 过滤掉空值和无效值
-    const toAdd: string[] = [p, ...children].filter((v) => v && typeof v === 'string' && v.trim() !== '')
-    if (toAdd.length === 0) return
-    setPrimarySelect(p || null)
-    setSecondarySelect(children.filter((v) => v && typeof v === 'string'))
-    setImageLabels((prev) => {
-      const base = Array.isArray(prev) ? [...prev] : []
-      // 使用 Set 去重，确保不会添加重复的标签
-      const set = new Set(base.map(v => v.trim()))
-      // 添加新标签到集合
-      toAdd.forEach(v => {
-        if (v && v.trim() !== '') {
-          set.add(v.trim())
-        }
-      })
+  // 级联选择器值同步到标签列表
+  const syncCascaderToLabels = React.useCallback((value: string[]) => {
+    if (!value?.length) return
+    const toAdd = value.filter(v => v?.trim())
+    if (!toAdd.length) return
+    setImageLabels(prev => {
+      const set = new Set(prev.map(v => v.trim()))
+      toAdd.forEach(v => set.add(v.trim()))
       return Array.from(set).filter(Boolean)
     })
-  }, [cascaderValue])
+  }, [])
 
+  useEffect(() => { syncCascaderToLabels(cascaderValue) }, [cascaderValue, syncCascaderToLabels])
+
+  // 标签变更处理（去重 + 级联同步）
   const handleImageLabelsChange = (vals: string[]) => {
-    // 过滤掉空字符串和无效值，确保数据一致性
-    const cleanedVals = Array.isArray(vals)
-      ? vals.filter((v) => v && typeof v === 'string' && v.trim() !== '')
-      : []
-    
-    // 去重处理：使用 Set 确保没有重复标签
-    const uniqueVals = Array.from(new Set(cleanedVals.map(v => v.trim()))).filter(Boolean)
-    
+    const uniqueVals = Array.from(new Set(vals.filter(v => v?.trim()).map(v => v.trim())))
     setImageLabels(uniqueVals)
     
-    // 如果用户删除了来自级联选择器的标签，同步清除级联选择器
-    if (cascaderValue && cascaderValue.length > 0) {
-      const cascaderTags = cascaderValue.filter((v) => v && typeof v === 'string' && v.trim() !== '')
-      const allCascaderTagsRemoved = cascaderTags.every(tag => !uniqueVals.includes(tag.trim()))
-      
-      if (allCascaderTagsRemoved) {
-        // 用户删除了所有来自级联选择器的标签，清空级联选择器
+    // 若删除了所有级联标签，清空级联选择器
+    if (cascaderValue?.length) {
+      const cascaderTags = cascaderValue.filter(v => v?.trim())
+      if (cascaderTags.every(tag => !uniqueVals.includes(tag.trim()))) {
         setCascaderValue([])
         setPrimarySelect(null)
         setSecondarySelect([])
@@ -199,120 +151,80 @@ export default function SimpleFileUpload() {
     }
   }
 
+  // 从文件读取 EXIF 信息和图片尺寸
   const loadExif = React.useCallback(async (file: File) => {
     try {
       const { tags, exifObj } = await exifReader(file)
       setExif(exifObj)
-      if (tags?.GPSLatitude?.description) {
-        setLat(tags?.GPSLatitude?.description)
-      } else {
-        setLat('')
-      }
-      if (tags?.GPSLongitude?.description) {
-        setLon(tags?.GPSLongitude?.description)
-      } else {
-        setLon('')
-      }
-    } catch (e) {
-      console.error(e)
-    }
+      setLat(tags?.GPSLatitude?.description || '')
+      setLon(tags?.GPSLongitude?.description || '')
+    } catch (e) { console.error(e) }
+    
     try {
       const reader = new FileReader()
-      reader.onload = (e) => {
+      reader.onload = e => {
         const img = new Image()
-        img.onload = () => {
-          setWidth(Number(img.width))
-          setHeight(Number(img.height))
-        }
-        // @ts-expect-error - FileReader result typing
-        img.src = e.target.result
+        img.onload = () => { setWidth(img.width); setHeight(img.height) }
+        img.src = e.target?.result as string
       }
       reader.readAsDataURL(file)
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
   }, [])
   
+  // 带超时的 fetch 封装
+  function fetchWithTimeout(resource: RequestInfo, options: RequestInit = {}, timeout = 15000) {
+    return new Promise<Response>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('请求超时')), timeout)
+      fetch(resource, options)
+        .then(res => { clearTimeout(timer); resolve(res) })
+        .catch(err => { clearTimeout(timer); reject(err) })
+    })
+  }
+
+  // 提交图片数据到后端
   async function handleSubmit() {
     setIsSubmitting(true)
     try {
-      if (!url || url === '') {
-        // show modal allowing upload+submit
-        setIsSubmitting(false)
-        setShowMissingModal(true)
-        return
-      }
-      if (album === '') {
-        toast.warning(t('Tips.selectAlbumFirst'))
-        return
-      }
-      if (!height || height <= 0) {
-        toast.warning(t('Tips.imageHeightRequired'))
-        return
-      }
-      if (!width || width <= 0) {
-        toast.warning(t('Tips.imageWidthRequired'))
-        return
-      }
+      // 校验必填项
+      if (!url) { setIsSubmitting(false); setShowMissingModal(true); return }
+      if (!album) { toast.warning(t('Tips.selectAlbumFirst')); return }
+      if (!height) { toast.warning(t('Tips.imageHeightRequired')); return }
+      if (!width) { toast.warning(t('Tips.imageWidthRequired')); return }
 
-      const labels = Array.isArray(imageLabels) ? [...imageLabels] : []
-      // If only primary selected, include primary. If secondary(s) selected, include primary + all selected secondaries.
-      if (primarySelect) {
-        if (!labels.includes(primarySelect)) labels.push(primarySelect)
-      }
-      if (secondarySelect && Array.isArray(secondarySelect) && secondarySelect.length > 0) {
-        secondarySelect.forEach((s) => { if (!labels.includes(s)) labels.push(s) })
-      }
+      // 合并标签（预设 + 级联选择）
+      const labels = [...imageLabels]
+      if (primarySelect && !labels.includes(primarySelect)) labels.push(primarySelect)
+      secondarySelect.forEach(s => { if (!labels.includes(s)) labels.push(s) })
 
+      // 构建提交数据
       const data = {
-        album,
-        url,
-        client_image_id: imageId,
-        image_name: imageName,
-        title,
-        preview_url: previewUrl,
-        video_url: videoUrl,
-        blurhash: hash,
-        exif,
-        labels,
-        detail,
-        width,
-        height,
-        type: 1,
-        lat,
-        lon,
-      } as ImageType & { tagCategoryMap?: Record<string, string> }
+        album, url, client_image_id: imageId, image_name: imageName, title,
+        preview_url: previewUrl, video_url: videoUrl, blurhash: hash,
+        exif, labels, detail, width, height, type: 1, lat, lon,
+      } as unknown as ImageType & { tagCategoryMap?: Record<string, string> }
 
-      if (primarySelect && secondarySelect && Array.isArray(secondarySelect) && secondarySelect.length > 0) {
-        // map each secondary -> primary for backend upsert
-        const map: Record<string, string> = {}
-        secondarySelect.forEach(s => { map[s] = primarySelect })
-        // @ts-expect-error - attach stable key on File
-        ;(data as { tagCategoryMap?: Record<string, string> }).tagCategoryMap = map
+      // 标签分类映射（子标签 -> 父分类）
+      if (primarySelect && secondarySelect.length) {
+        data.tagCategoryMap = Object.fromEntries(secondarySelect.map(s => [s, primarySelect]))
       }
 
-      // 提交前进行重复检测（优先 blurhash，其次 url）
+      // 重复检测
       const dupRes = await fetchWithTimeout('/api/v1/images/check-duplicate', {
         headers: { 'Content-Type': 'application/json' },
         method: 'post',
         body: JSON.stringify({ blurhash: hash || undefined, url: url || undefined }),
       }, 10000).then(r => r.json()).catch(() => ({ code: 200, data: { duplicate: false } }))
 
-      if (dupRes?.code === 200 && dupRes?.data?.duplicate) {
-        const ok = await new Promise<boolean>((resolve) => {
+      if (dupRes?.data?.duplicate) {
+        const ok = await new Promise<boolean>(resolve => {
           AntModal.confirm({
             title: '检测到重复图片',
-            content: '该图片已存在，是否仍然继续保存（可能会复用已有记录）？',
-            okText: '继续保存',
-            cancelText: '取消',
-            onOk: () => resolve(true),
-            onCancel: () => resolve(false),
+            content: '该图片已存在，是否仍然继续保存？',
+            okText: '继续保存', cancelText: '取消',
+            onOk: () => resolve(true), onCancel: () => resolve(false),
           })
         })
-        if (!ok) {
-          setIsSubmitting(false)
-          return
-        }
+        if (!ok) { setIsSubmitting(false); return }
       }
 
       const res = await fetchWithTimeout('/api/v1/images/add', {
@@ -321,11 +233,7 @@ export default function SimpleFileUpload() {
         body: JSON.stringify(data),
       }, 15000).then(r => r.json())
 
-      if (res?.code === 200) {
-        toast.success(t('Tips.saveSuccess'))
-      } else {
-        toast.error(t('Tips.saveFailed'))
-      }
+      toast[res?.code === 200 ? 'success' : 'error'](t(res?.code === 200 ? 'Tips.saveSuccess' : 'Tips.saveFailed'))
     } catch {
       toast.error(t('Tips.saveFailed'))
     } finally {
@@ -334,289 +242,135 @@ export default function SimpleFileUpload() {
     }
   }
 
-  // small helper to avoid hanging fetches
-  function fetchWithTimeout(resource: RequestInfo, options: RequestInit = {}, timeout = 15000) {
-    return new Promise<Response>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('请求超时')), timeout)
-      fetch(resource, options).then((res) => {
-        clearTimeout(timer)
-        resolve(res)
-      }).catch((err) => {
-        clearTimeout(timer)
-        reject(err)
-      })
-    })
-  }
-
+  // 获取 AList 存储目录列表
   async function getAlistStorage() {
-    if (alistStorage.length > 0) {
-      setStorageSelect(true)
-      return
-    }
+    if (alistStorage.length) { setStorageSelect(true); return }
     try {
       toast.info(t('Tips.gettingAlistDirs'))
-      const res = await fetch('/api/v1/storage/alist/storages', {
-        method: 'GET',
-      }).then(res => res.json())
-      if (res?.code === 200) {
-        setAlistStorage(res.data?.content)
-        setStorageSelect(true)
-      } else {
-        toast.error(t('Tips.getFailed'))
-      }
-    } catch {
-      toast.error(t('Tips.getFailed'))
-    }
+      const res = await fetch('/api/v1/storage/alist/storages').then(r => r.json())
+      if (res?.code === 200) { setAlistStorage(res.data?.content); setStorageSelect(true) }
+      else toast.error(t('Tips.getFailed'))
+    } catch { toast.error(t('Tips.getFailed')) }
   }
 
   const storages = [
-    {
-      label: 'Cloudflare R2',
-      value: 'r2',
-    },
-    {
-      label: 'Amazon S3',
-      value: 's3',
-    },
-    {
-      label: 'AList API',
-      value: 'alist',
-    }
+    { label: 'Cloudflare R2', value: 'r2' },
+    { label: 'Amazon S3', value: 's3' },
+    { label: 'Aliyun OSS', value: 'oss' },
+    { label: 'AList API', value: 'alist' },
   ]
 
+  // 上传预览图（压缩后）
   const uploadPreviewImage = React.useCallback(async (file: File, type: string) => {
     new Compressor(file, {
-      quality: previewCompressQuality,
+      quality: previewQuality,
       checkOrientation: false,
       mimeType: 'image/webp',
-      maxWidth: previewImageMaxWidthLimitSwitchOn && previewImageMaxWidthLimit > 0 ? previewImageMaxWidthLimit : undefined,
+      maxWidth: previewMaxWidthOn && previewMaxWidth > 0 ? previewMaxWidth : undefined,
       async success(compressedFile) {
-        const res = await uploadFile(compressedFile, type, storage, alistMountPath, { onProgress: (p:number) => setUploadProgress(p) })
+        const previewFile = new File([compressedFile], 'preview.webp', { type: 'image/webp' })
+        const res = await uploadFile(previewFile, type, storage, alistMountPath, { onProgress: p => setUploadProgress(p) })
         if (res?.code === 200) {
-          setPreviewUrl(res?.data?.url)
-          if (res?.data?.key) setPreviewKey(res.data.key)
-        } else {
-          throw new Error('Upload failed')
+          setPreviewUrl(res.data?.url || '')
+          if (res.data?.key) setPreviewKey(res.data.key)
         }
       },
-      error() {
-        throw new Error('Upload failed')
-      },
+      error() {},
     })
-  }, [previewCompressQuality, previewImageMaxWidthLimitSwitchOn, previewImageMaxWidthLimit, storage, alistMountPath])
+  }, [previewQuality, previewMaxWidthOn, previewMaxWidth, storage, alistMountPath])
 
+  // 上传成功后处理（设置元数据、上传预览图）
   const resHandle = React.useCallback(async (res: UploadResponse, file: File) => {
-    try {
-      if (album === '/') {
-        await uploadPreviewImage(file, '/preview')
-      } else {
-        await uploadPreviewImage(file, album + '/preview')
-      }
-    } catch (e) {
-      console.error('Failed to upload preview image:', e)
-    }
+    try { await uploadPreviewImage(file, album === '/' ? '/preview' : album + '/preview') } catch {}
     await loadExif(file)
     setHash(await encodeBrowserThumbHash(file))
-    setUrl(res?.data?.url)
-    setImageId(res?.data?.imageId)
-    setImageName(res?.data?.fileName)
-    if (res?.data?.key) setOriginalKey(res.data.key)
+    setUrl(res.data?.url || '')
+    setImageId(res.data?.imageId || '')
+    setImageName(res.data?.fileName || '')
+    if (res.data?.key) setOriginalKey(res.data.key)
   }, [album, loadExif, uploadPreviewImage])
 
+  // 从参考图提取 EXIF（不上传）
   const applyReferenceExif = React.useCallback(async (file: File) => {
     try {
       const { tags, exifObj } = await exifReader(file)
-      setExif((prev) => ({ ...(prev || {}), ...exifObj }))
+      setExif(prev => ({ ...prev, ...exifObj }))
       setLat(tags?.GPSLatitude?.description || '')
       setLon(tags?.GPSLongitude?.description || '')
-      toast.success('已从参考图提取 EXIF（未上传参考图）')
-    } catch (err) {
-      console.error('Reference EXIF parse failed', err)
-      toast.error('参考图无有效 EXIF 信息或解析失败')
+      toast.success('已从参考图提取 EXIF')
+    } catch {
+      toast.error('参考图无有效 EXIF 信息')
     }
   }, [])
 
+  // 上传原图（支持 HEIC 自动转换）
   const onRequestUpload = React.useCallback(async (file: File) => {
-    // 获取文件名但是去掉扩展名部分
-    const fileName = file.name.split('.').slice(0, -1).join('.')
+    const baseName = file.name.replace(/\.[^/.]+$/, '')
+    
+    // HEIC 转 JPEG
     if (await isHeic(file)) {
-      // 把 HEIC 转成 JPEG
-      const outputBuffer: Blob | Blob[] = await heicTo({
-        blob: file,
-        type: 'image/jpeg',
-      })
-      const outputFile = new File([outputBuffer], fileName + '.jpg', { type: 'image/jpeg' })
-      await uploadFile(outputFile, album, storage, alistMountPath, { onProgress: (p:number) => setUploadProgress(p) }).then(async (res) => {
-        if (res.code === 200) {
-          await resHandle(res, outputFile)
-        } else {
-          throw new Error('Upload failed')
-        }
-      })
-    } else {
-      // ensure __key exists
-      // @ts-expect-error - preview dataURL typing
-      if (!file.__key) file.__key = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2,9)}`
-      await uploadFile(file, album, storage, alistMountPath, { onProgress: (p:number) => setUploadProgress(p) }).then(async (res) => {
-        if (res.code === 200) {
-          await resHandle(res, file)
-        } else {
-          throw new Error('Upload failed')
-        }
-      })
+      const blob = await heicTo({ blob: file, type: 'image/jpeg' })
+      const jpegFile = new File([blob], baseName + '.jpg', { type: 'image/jpeg' })
+      const res = await uploadFile(jpegFile, album, storage, alistMountPath, { onProgress: p => setUploadProgress(p) })
+      if (res.code === 200) await resHandle(res, jpegFile)
+      return
     }
+    
+    // 普通文件上传
+    const res = await uploadFile(file, album, storage, alistMountPath, { onProgress: p => setUploadProgress(p) })
+    if (res.code === 200) await resHandle(res, file)
   }, [album, storage, alistMountPath, resHandle])
 
+  // 重置所有状态（移除文件时）
   function onRemoveFile() {
-    // 若已上传原图，尝试删除存储对象
-    ;(async () => {
-      try {
-        if (originalKey && storage) {
-          await fetch('/api/v1/file/delete', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ storage, key: originalKey })
-          })
-        }
-        // 预览文件删除：若能推断同 imageId 则构造前缀删除。此处先跳过，依赖后台清理或后续增强。
-      } catch {}
-    })()
-    setExif({} as ExifType)
-    setUrl('')
-    setHash('')
-    setTitle('')
-    setImageId('')
-    setImageName('')
-    setDetail('')
-    setWidth(0)
-    setHeight(0)
-    setLat('')
-    setLon('')
-    setPreviewUrl('')
-    setVideoUrl('')
-    setOriginalKey('')
-    setPreviewKey('')
-    setImageLabels([])
-    setCascaderValue([])
-    setPrimarySelect(null)
-    setSecondarySelect([])
+    // 尝试删除已上传的存储对象
+    if (originalKey && storage) {
+      fetch('/api/v1/file/delete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storage, key: originalKey })
+      }).catch(() => {})
+    }
+    // 重置所有状态
+    setExif({} as ExifType); setUrl(''); setHash(''); setTitle('')
+    setImageId(''); setImageName(''); setDetail('')
+    setWidth(0); setHeight(0); setLat(''); setLon('')
+    setPreviewUrl(''); setVideoUrl(''); setOriginalKey(''); setPreviewKey('')
+    setImageLabels([]); setCascaderValue([]); setPrimarySelect(null); setSecondarySelect([])
     setFiles([])
   }
 
+  // 按 key 移除文件
   function removeFileByKey(key: string) {
-    try {
-      // If current files contain the key, clear all file-related states
-      // @ts-expect-error - file key
-      const has = files.some(f => (f.__key || f.name || '').toString() === key)
-      if (has) {
-        onRemoveFile()
-      }
-      // ensure files cleared
-      // @ts-expect-error - file key
-      setFiles(prev => prev.filter(f => (f.__key || f.name || '').toString() !== key))
-    } catch (e) {
-      console.error('removeFileByKey error', e)
-      setFiles([])
-      onRemoveFile()
-    }
+    const has = files.some(f => ((f as FileWithKey).__key || f.name) === key)
+    if (has) onRemoveFile()
+    setFiles(prev => prev.filter(f => ((f as FileWithKey).__key || f.name) !== key))
   }
 
-  const onBeforeUpload = React.useCallback(async () => {
-    setTitle('')
-    setImageId('')
-    setImageName('')
-    setPreviewUrl('')
-    setVideoUrl('')
-    setImageLabels([])
-    setCascaderValue([])
-    setPrimarySelect(null)
-    setSecondarySelect([])
-  }, [])
+  // 文件选择后自动处理（有相册则上传，无相册则仅预览）
+  const onRequestUploadRef = useRef(onRequestUpload)
+  onRequestUploadRef.current = onRequestUpload
 
-  const [files, setFiles] = React.useState<File[]>([])
-
-  const _onUpload = React.useCallback(
-    async (
-      files: File[],
-      {
-        onSuccess,
-        onError,
-      }: {
-        onSuccess: (file: File) => void;
-        onError: (file: File, error: Error) => void;
-      },
-    ) => {
-      try {
-        // Process each file individually
-        const uploadPromises = files.map(async (file) => {
-          try {
-            await onBeforeUpload()
-            await onRequestUpload(file)
-            onSuccess(file)
-          } catch (error) {
-            onError(
-              file,
-              error instanceof Error ? error : new Error('Upload failed'),
-            )
-            throw new Error('Upload failed')
-          }
-        })
-
-        toast.promise(() => Promise.all(uploadPromises), {
-          loading: t('Upload.uploading'),
-          success: () => {
-            return t('Upload.uploadSuccess')
-          },
-          error: t('Upload.uploadError'),
-        })
-      } catch (error) {
-        // This handles any error that might occur outside the individual upload processes
-        console.error('Unexpected error during upload:', error)
-        toast.error('Upload failed')
-      }
-    },
-    [onRequestUpload, onBeforeUpload, t],
-  )
-
-  // When a file is selected, only read EXIF/preview/hash locally and prefill the form.
-  // Actual upload to storage will happen when the user clicks Submit (onUpload/onRequestUpload).
-  React.useEffect(() => {
-    if (!files || files.length === 0) return
+  useEffect(() => {
     const file = files[0]
-    if (!file) return
-
-    // prevent re-prefill for the same file
-    if (autoUploadedFor === file.name) return
+    if (!file || autoUploadedFor === file.name) return
 
     let cancelled = false
     ;(async () => {
       try {
-        // 如果未选择相册则不自动上传
-        if (!album) {
-          // 保持旧行为：本地解析 EXIF/预览作为回退
+        if (album) {
+          await onRequestUploadRef.current(file)
+        } else {
           await loadExif(file)
           setHash(await encodeBrowserThumbHash(file))
           const reader = new FileReader()
-          reader.onload = (e) => {
-            if (cancelled) return
-            // @ts-expect-error - conditional preview key reading
-            setPreviewUrl(typeof e.target?.result === 'string' ? e.target.result : '')
-          }
+          reader.onload = e => { if (!cancelled) setPreviewUrl(e.target?.result as string || '') }
           reader.readAsDataURL(file)
-          setAutoUploadedFor(file.name)
-          return
         }
-
-        // 已选择相册 => 自动上传原图与预览到存储
-        await onRequestUpload(file)
-        // onRequestUpload 会在完成时设置 url/previewUrl/exif/hash 等
         setAutoUploadedFor(file.name)
-      } catch (e) {
-        console.error('Auto-upload failed', e)
-      }
+      } catch {}
     })()
-
     return () => { cancelled = true }
-  }, [files, album, autoUploadedFor, onRequestUpload, loadExif])
+  }, [files, album, autoUploadedFor, loadExif])
 
   return (
     <div className="admin-upload flex flex-col space-y-4 h-full flex-1 font-sans text-sm">
@@ -626,50 +380,36 @@ export default function SimpleFileUpload() {
           <AntForm.Item 
             label={t('Upload.selectStorage')} 
             required
-            validateStatus={storage === '' ? 'error' : ''}
-            help={storage === '' ? '请选择存储' : ''}
+            validateStatus={!storage ? 'error' : ''}
+            help={!storage ? '请选择存储' : ''}
             style={{ minWidth: 160, marginBottom: 0 }}
           >
-            <Select value={storage} onValueChange={(value: string) => { setStorage(value); if (value === 'alist') { getAlistStorage() } else { setStorageSelect(false) } if (value === 's3') { try { toast.info('已切换到 Amazon S3：无需选择目录，请先选择相册再上传') } catch {} } }}>
+            <Select value={storage} onValueChange={(v: string) => {
+              setStorage(v)
+              if (v === 'alist') getAlistStorage(); else setStorageSelect(false)
+            }}>
               <SelectTrigger className="w-[160px] h-9 bg-white text-gray-900 border-gray-200"><SelectValue placeholder={t('Upload.selectStorage')} /></SelectTrigger>
               <SelectContent>
-                {storages?.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                ))}
+                {storages.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </AntForm.Item>
 
-          <AntForm.Item 
-            label={t('Upload.selectAlbum')} 
-            required
-            style={{ minWidth: 280, flex: 1, marginBottom: 0 }}
-            className="flex-1 min-w-0"
-          >
-            <Select value={album ?? undefined} onValueChange={(value: string) => setAlbum(value)}>
+          <AntForm.Item label={t('Upload.selectAlbum')} required style={{ minWidth: 280, flex: 1, marginBottom: 0 }} className="flex-1 min-w-0">
+            <Select value={album || undefined} onValueChange={setAlbum}>
               <SelectTrigger className="w-full h-9 bg-white text-gray-900 border-gray-200"><SelectValue placeholder={t('Upload.selectAlbum')} /></SelectTrigger>
               <SelectContent>
-                {data?.map((a: AlbumType) => (
-                  <SelectItem key={a.album_value} value={a.album_value}>{a.name}</SelectItem>
-                ))}
+                {data?.map((a: AlbumType) => <SelectItem key={a.album_value} value={a.album_value}>{a.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </AntForm.Item>
 
-          {storage === 'alist' && storageSelect && alistStorage?.length > 0 && (
-            <AntForm.Item
-              label={t('Upload.selectAlistDirectory')}
-              required
-              validateStatus={alistMountPath === '' ? 'error' : ''}
-              help={alistMountPath === '' ? '请选择 AList 目录' : ''}
-              style={{ minWidth: 240, marginBottom: 0 }}
-            >
-              <Select value={alistMountPath ?? undefined} onValueChange={(value: string) => setAlistMountPath(value)}>
+          {storage === 'alist' && storageSelect && alistStorage.length > 0 && (
+            <AntForm.Item label={t('Upload.selectAlistDirectory')} required validateStatus={!alistMountPath ? 'error' : ''} help={!alistMountPath ? '请选择 AList 目录' : ''} style={{ minWidth: 240, marginBottom: 0 }}>
+              <Select value={alistMountPath || undefined} onValueChange={setAlistMountPath}>
                 <SelectTrigger className="w-[200px] h-9 bg-white text-gray-900 border-gray-200"><SelectValue placeholder={t('Upload.selectAlistDirectory')} /></SelectTrigger>
                 <SelectContent>
-                  {alistStorage?.map((s) => (
-                    <SelectItem key={s?.mount_path} value={s?.mount_path}>{s?.mount_path}</SelectItem>
-                  ))}
+                  {alistStorage.map(s => <SelectItem key={s.mount_path} value={s.mount_path}>{s.mount_path}</SelectItem>)}
                 </SelectContent>
               </Select>
             </AntForm.Item>
@@ -682,14 +422,10 @@ export default function SimpleFileUpload() {
               type="primary"
               loading={isSubmitting}
               onClick={async () => {
-                try {
-                    if (files.length > 0 && (!url || url === '')) {
-                      await onRequestUpload(files[0])
-                    }
-                    await handleSubmit()
-                } catch {}
+                if (files[0] && !url) await onRequestUpload(files[0])
+                await handleSubmit()
               }}
-              disabled={(files.length === 0 && (!url || url === '')) || album === '' || storage === '' || (storage === 'alist' && alistMountPath === '')}
+              disabled={(!files.length && !url) || !album || !storage || (storage === 'alist' && !alistMountPath)}
             >
               {t('Button.submit')}
             </AntButton>
@@ -701,60 +437,44 @@ export default function SimpleFileUpload() {
         open={showMissingModal}
         onCancel={() => setShowMissingModal(false)}
         footer={[
-          <AntButton key="cancel" onClick={() => setShowMissingModal(false)}>{'取消'}</AntButton>,
+          <AntButton key="cancel" onClick={() => setShowMissingModal(false)}>取消</AntButton>,
           <AntButton key="upload" type="primary" onClick={async () => {
             setShowMissingModal(false)
-            if (files.length === 0) return
-            const f = files[0]
-            try {
-              setIsSubmitting(true)
-              await onRequestUpload(f)
-              // after upload, try submit again
-              await handleSubmit()
-            } catch (e) {
-              console.error(e)
-              toast.error('上传失败')
-            } finally {
-              setIsSubmitting(false)
-            }
-          }}>{'上传并提交'}</AntButton>
+            if (!files[0]) return
+            setIsSubmitting(true)
+            try { await onRequestUpload(files[0]); await handleSubmit() }
+            catch { toast.error('上传失败') }
+            finally { setIsSubmitting(false) }
+          }}>上传并提交</AntButton>
         ]}
       >
-        <div>当前文件尚未上传。点击“上传并提交”将先上传文件然后保存元数据。</div>
+        <div>当前文件尚未上传，点击"上传并提交"将先上传后保存。</div>
       </AntModal>
 
-      {/* AList mount path selector is rendered inline in the top row when applicable */}
-      {/* Main area: left - uploader, right - metadata form */}
+      {/* 主区域：左侧上传器，右侧元数据表单 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
         <div className="h-full">
           <AntCard className="h-full" title="上传文件">
-              <Dragger
+            <Dragger
               multiple={false}
-              disabled={storage === '' || album === '' || (storage === 'alist' && alistMountPath === '')}
+              disabled={!storage || !album || (storage === 'alist' && !alistMountPath)}
               beforeUpload={() => false}
               showUploadList={false}
               style={{ padding: 12, minHeight: 120, height: '100%' }}
-              onChange={(info) => {
-                const fileList = info.fileList || []
-                const last = fileList.length > 0 ? (fileList[fileList.length - 1].originFileObj as File) : undefined
+              onChange={info => {
+                const last = info.fileList?.at(-1)?.originFileObj as FileWithKey | undefined
                 if (last) {
-                  // ensure stable key
-                  // @ts-expect-error - attach stable key on File
-                  if (!last.__key) last.__key = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2,9)}`
+                  if (!last.__key) last.__key = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
                   setFiles([last])
-                } else {
-                  setFiles([])
-                }
+                } else setFiles([])
               }}
             >
               <div className="flex flex-col items-center justify-center h-full gap-2">
                 <UploadIcon />
                 <p className="font-medium text-sm">{t('Upload.dragOrClick')}</p>
-                <p className="text-muted-foreground text-xs">{t('Upload.uploadTipsSingle') ?? '可拖拽或点击上传（最多 1 个文件）'}</p>
-                {(storage === '' || album === '' || (storage === 'alist' && alistMountPath === '')) && (
-                  <p className="text-[12px]" style={{ color: '#999' }}>
-                    请先选择存储与相册{storage === 'alist' ? '（以及 AList 目录）' : ''}
-                  </p>
+                <p className="text-muted-foreground text-xs">{t('Upload.uploadTipsSingle') ?? '可拖拽或点击上传'}</p>
+                {(!storage || !album || (storage === 'alist' && !alistMountPath)) && (
+                  <p className="text-[12px]" style={{ color: '#999' }}>请先选择存储与相册</p>
                 )}
               </div>
             </Dragger>
@@ -764,93 +484,56 @@ export default function SimpleFileUpload() {
                 <AntProgress percent={uploadProgress} status="active" />
               </div>
             )}
-            {/* Inline EXIF form moved up from bottom to occupy blank space */}
+            {/* EXIF 补充表单 */}
             <div className="mt-6 pt-4 border-t">
-              <div className="text-sm font-medium mb-3">EXIF 信息（若部分缺失，可在此补充）</div>
+              <div className="text-sm font-medium mb-3">EXIF 信息</div>
               <div className="flex flex-wrap items-center gap-3 mb-3">
-                <AntButton
-                  type="default"
-                  onClick={() => referenceInputRef.current?.click()}
-                >
-                  选择参考图提取 EXIF（仅本地解析，不上传）
-                </AntButton>
-                <input
-                  ref={referenceInputRef}
-                  type="file"
-                  accept="image/*,.cr2,.arw,.nef,.tif,.tiff,.dng"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) applyReferenceExif(file)
-                    // 允许重复选择同一文件
-                    e.target.value = ''
-                  }}
-                />
+                <AntButton type="default" onClick={() => referenceInputRef.current?.click()}>选择参考图提取 EXIF</AntButton>
+                <input ref={referenceInputRef} type="file" accept="image/*,.cr2,.arw,.nef,.tif,.tiff,.dng" className="hidden" onChange={e => { if (e.target.files?.[0]) applyReferenceExif(e.target.files[0]); e.target.value = '' }} />
               </div>
               <AntForm layout="vertical">
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  <AntForm.Item label="相机品牌 / 型号" extra={<a onClick={() => { setEditingPresetsText({ cameraModels: exifPresets.cameraModels.join(', '), shutterSpeeds: exifPresets.shutterSpeeds.join(', '), isos: exifPresets.isos.join(', '), apertures: exifPresets.apertures.join(', ') }); setIsPresetModalOpen(true) }}>管理常用选项</a>}>
-                    <div>
-                      <MultipleSelector
-                        value={exif?.model ? [{ value: String(exif.model), label: String(exif.model) }] : []}
-                        options={exifPresets.cameraModels.map((m: string) => ({ value: m, label: m }))}
-                        placeholder="可从建议中选择或直接输入相机型号"
-                        creatable
-                        maxSelected={1}
-                        onChange={(opts?: any) => {
-                          const v = (opts && opts[0] && opts[0].value) || ''
-                          setExif({ ...(exif || {}), model: v })
-                        }}
-                      />
-                    </div>
+                  <AntForm.Item label="相机型号" extra={<a onClick={() => { setEditingPresetsText({ cameraModels: exifPresets.cameraModels.join(', '), shutterSpeeds: exifPresets.shutterSpeeds.join(', '), isos: exifPresets.isos.join(', '), apertures: exifPresets.apertures.join(', ') }); setIsPresetModalOpen(true) }}>管理常用选项</a>}>
+                    <MultipleSelector
+                      value={exif?.model ? [{ value: String(exif.model), label: String(exif.model) }] : []}
+                      options={exifPresets.cameraModels.map(m => ({ value: m, label: m }))}
+                      placeholder="选择或输入"
+                      creatable maxSelected={1}
+                      onChange={(opts?: any) => setExif({ ...exif, model: opts?.[0]?.value || '' })}
+                    />
                   </AntForm.Item>
                   <AntForm.Item label="光圈 (f/)">
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <Select value={exif?.f_number || undefined} onValueChange={(v) => setExif({ ...(exif || {}), f_number: v })}>
-                        <SelectTrigger className="min-w-[120px] h-9 bg-white text-gray-900 border-gray-200"><SelectValue placeholder="常用光圈" /></SelectTrigger>
-                        <SelectContent>
-                          {exifPresets.apertures.map((a: string) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
-                        </SelectContent>
+                    <div className="flex gap-2">
+                      <Select value={exif?.f_number ? String(exif.f_number) : undefined} onValueChange={v => setExif({ ...exif, f_number: Number(v) || 0 })}>
+                        <SelectTrigger className="min-w-[120px] h-9 bg-white text-gray-900 border-gray-200"><SelectValue placeholder="常用" /></SelectTrigger>
+                        <SelectContent>{exifPresets.apertures.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
                       </Select>
-                      <AntInput value={exif?.f_number || ''} onChange={(e) => setExif({ ...(exif || {}), f_number: e.target.value })} placeholder="或手动输入" />
+                      <AntInput value={exif?.f_number || ''} onChange={e => setExif({ ...exif, f_number: Number(e.target.value) || 0 })} placeholder="手动输入" />
                     </div>
                   </AntForm.Item>
-                  <AntForm.Item label="快门 (exposure time)">
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <Select value={exif?.exposure_time || undefined} onValueChange={(v) => setExif({ ...(exif || {}), exposure_time: v })}>
-                        <SelectTrigger className="min-w-[120px] h-9 bg-white text-gray-900 border-gray-200"><SelectValue placeholder="常用快门" /></SelectTrigger>
-                        <SelectContent>
-                          {exifPresets.shutterSpeeds.map((s: string) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
-                        </SelectContent>
+                  <AntForm.Item label="快门">
+                    <div className="flex gap-2">
+                      <Select value={exif?.exposure_time || undefined} onValueChange={v => setExif({ ...exif, exposure_time: v })}>
+                        <SelectTrigger className="min-w-[120px] h-9 bg-white text-gray-900 border-gray-200"><SelectValue placeholder="常用" /></SelectTrigger>
+                        <SelectContent>{exifPresets.shutterSpeeds.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                       </Select>
-                      <AntInput value={exif?.exposure_time || ''} onChange={(e) => setExif({ ...(exif || {}), exposure_time: e.target.value })} placeholder="或手动输入" />
+                      <AntInput value={exif?.exposure_time || ''} onChange={e => setExif({ ...exif, exposure_time: e.target.value })} placeholder="手动输入" />
                     </div>
                   </AntForm.Item>
                   <AntForm.Item label="ISO">
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <Select value={exif?.iso_speed_rating || undefined} onValueChange={(v) => setExif({ ...(exif || {}), iso_speed_rating: v })}>
-                        <SelectTrigger className="min-w-[120px] h-9 bg-white text-gray-900 border-gray-200"><SelectValue placeholder="常用 ISO" /></SelectTrigger>
-                        <SelectContent>
-                          {exifPresets.isos.map((i: string) => (<SelectItem key={i} value={i}>{i}</SelectItem>))}
-                        </SelectContent>
+                    <div className="flex gap-2">
+                      <Select value={exif?.iso_speed_rating ? String(exif.iso_speed_rating) : undefined} onValueChange={v => setExif({ ...exif, iso_speed_rating: Number(v) || 0 })}>
+                        <SelectTrigger className="min-w-[120px] h-9 bg-white text-gray-900 border-gray-200"><SelectValue placeholder="常用" /></SelectTrigger>
+                        <SelectContent>{exifPresets.isos.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
                       </Select>
-                      <AntInput value={exif?.iso_speed_rating || ''} onChange={(e) => setExif({ ...(exif || {}), iso_speed_rating: e.target.value })} placeholder="或手动输入" />
+                      <AntInput value={exif?.iso_speed_rating || ''} onChange={e => setExif({ ...exif, iso_speed_rating: Number(e.target.value) || 0 })} placeholder="手动输入" />
                     </div>
                   </AntForm.Item>
                   <AntForm.Item label="焦距 (mm)">
-                    <AntInput value={exif?.focal_length || ''} onChange={(e) => setExif({ ...(exif || {}), focal_length: e.target.value })} />
+                    <AntInput value={exif?.focal_length || ''} onChange={e => setExif({ ...exif, focal_length: Number(e.target.value) || 0 })} />
                   </AntForm.Item>
                   <AntForm.Item label="拍摄日期">
-                    <AntDatePicker
-                      style={{ width: '100%' }}
-                      showTime
-                      placeholder="选择拍摄日期和时间"
-                      locale={zhCN}
-                      value={exif?.data_time ? dayjs(exif.data_time) : undefined}
-                      onChange={(date) => setExif({ ...(exif || {}), data_time: date ? date.format('YYYY-MM-DD HH:mm:ss') : '' })}
-                      format="YYYY-MM-DD HH:mm:ss"
-                      allowClear
-                    />
+                    <AntDatePicker style={{ width: '100%' }} showTime locale={zhCN} value={exif?.data_time ? dayjs(exif.data_time) : undefined} onChange={d => setExif({ ...exif, data_time: d?.format('YYYY-MM-DD HH:mm:ss') || '' })} format="YYYY-MM-DD HH:mm:ss" allowClear />
                   </AntForm.Item>
                 </div>
               </AntForm>
@@ -861,128 +544,101 @@ export default function SimpleFileUpload() {
         <div className="h-full">
           <AntCard className="h-full" title="元数据" styles={{ header: { borderBottom: '1px solid #f0f0f0' } }}>
             <AntSpace vertical size={16} style={{ width: '100%' }}>
+              {/* 基本信息 */}
               <div>
-                <div className="text-sm font-medium" style={{ marginBottom: 12, color: '#262626' }}>地址与尺寸</div>
+                <div className="text-sm font-medium mb-3">地址与尺寸</div>
                 <AntSpace vertical size={12} style={{ width: '100%' }}>
                   <div>
-                    <div className="text-xs" style={{ marginBottom: 8, color: '#595959' }}>{t('Upload.title')}</div>
-                    <AntInput
-                      value={title}
-                      placeholder={t('Upload.inputTitle')}
-                      onChange={(e) => setTitle(e.target.value)}
-                    />
+                    <div className="text-xs mb-2 text-gray-500">{t('Upload.title')}</div>
+                    <AntInput value={title} placeholder={t('Upload.inputTitle')} onChange={e => setTitle(e.target.value)} />
                   </div>
-
                   <div>
-                    <div className="text-xs" style={{ marginBottom: 8, color: '#595959' }}>{t('Upload.url')}</div>
+                    <div className="text-xs mb-2 text-gray-500">{t('Upload.url')}</div>
                     <AntInput disabled value={url} />
-                    {!url && (
-                      <div className="text-xs" style={{ marginTop: 8, color: '#cf1322' }}>未上传原图，提交前将提示上传或自动上传。</div>
-                    )}
+                    {!url && <div className="text-xs mt-2 text-red-600">未上传原图</div>}
                   </div>
-
                   <div>
-                    <div className="text-xs" style={{ marginBottom: 8, color: '#595959' }}>{t('Upload.previewUrl')}</div>
+                    <div className="text-xs mb-2 text-gray-500">{t('Upload.previewUrl')}</div>
                     <AntInput disabled value={previewUrl} />
                   </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <div className="text-xs" style={{ marginBottom: 8, color: '#595959' }}>{t('Upload.width')}</div>
-                      <AntInputNumber disabled value={width} onChange={(val) => setWidth(Number(val) || 0)} style={{ width: '100%' }} />
-                      {!width && (
-                        <div className="text-xs" style={{ marginTop: 8, color: '#cf1322' }}>缺少宽度信息</div>
-                      )}
+                      <div className="text-xs mb-2 text-gray-500">{t('Upload.width')}</div>
+                      <AntInputNumber disabled value={width} style={{ width: '100%' }} />
+                      {!width && <div className="text-xs mt-2 text-red-600">缺少宽度</div>}
                     </div>
                     <div>
-                      <div className="text-xs" style={{ marginBottom: 8, color: '#595959' }}>{t('Upload.height')}</div>
-                      <AntInputNumber disabled value={height} onChange={(val) => setHeight(Number(val) || 0)} style={{ width: '100%' }} />
-                      {!height && (
-                        <div className="text-xs" style={{ marginTop: 8, color: '#cf1322' }}>缺少高度信息</div>
-                      )}
+                      <div className="text-xs mb-2 text-gray-500">{t('Upload.height')}</div>
+                      <AntInputNumber disabled value={height} style={{ width: '100%' }} />
+                      {!height && <div className="text-xs mt-2 text-red-600">缺少高度</div>}
                     </div>
                   </div>
                 </AntSpace>
               </div>
 
+              {/* 地理位置 */}
               <div>
-                <div className="text-sm font-medium" style={{ marginBottom: 12, color: '#262626' }}>地理位置</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div className="text-sm font-medium mb-3">地理位置</div>
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <div className="text-xs" style={{ marginBottom: 8, color: '#595959' }}>{t('Upload.lon')}</div>
-                    <AntInput disabled value={lon} onChange={(e) => setLon(e.target.value)} />
+                    <div className="text-xs mb-2 text-gray-500">{t('Upload.lon')}</div>
+                    <AntInput disabled value={lon} />
                   </div>
                   <div>
-                    <div className="text-xs" style={{ marginBottom: 8, color: '#595959' }}>{t('Upload.lat')}</div>
-                    <AntInput disabled value={lat} onChange={(e) => setLat(e.target.value)} />
+                    <div className="text-xs mb-2 text-gray-500">{t('Upload.lat')}</div>
+                    <AntInput disabled value={lat} />
                   </div>
                 </div>
               </div>
 
+              {/* 描述 */}
               <div>
-                <div className="text-sm font-medium" style={{ marginBottom: 12, color: '#262626' }}>描述</div>
+                <div className="text-sm font-medium mb-3">描述</div>
                 <div>
-                  <div className="text-xs" style={{ marginBottom: 8, color: '#595959' }}>{t('Upload.detail')}</div>
-                  <AntInput value={detail} onChange={(e) => setDetail(e.target.value)} placeholder={t('Upload.inputDetail')} />
+                  <div className="text-xs mb-2 text-gray-500">{t('Upload.detail')}</div>
+                  <AntInput value={detail} onChange={e => setDetail(e.target.value)} placeholder={t('Upload.inputDetail')} />
                 </div>
               </div>
 
+              {/* 标签 */}
               <div>
-                <div className="text-sm font-medium" style={{ marginBottom: 12, color: '#262626' }}>标签</div>
+                <div className="text-sm font-medium mb-3">标签</div>
                 <AntSpace vertical size={12} style={{ width: '100%' }}>
                   <div>
-                    <div className="text-xs" style={{ marginBottom: 8, color: '#595959' }}>预设标签（点击加入 / 再次点击移除）</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <div className="text-xs mb-2 text-gray-500">预设标签（点击切换）</div>
+                    <div className="flex flex-wrap gap-2">
                       {presetTags.filter(Boolean).map((tag, i) => (
-                        <AntTag
-                          key={`${tag}-${i}`}
-                          color={imageLabels && imageLabels.includes(tag) ? 'blue' : 'default'}
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => togglePresetTag(tag)}
-                        >
-                          {tag}
-                        </AntTag>
+                        <AntTag key={`${tag}-${i}`} color={imageLabels.includes(tag) ? 'blue' : 'default'} style={{ cursor: 'pointer' }} onClick={() => togglePresetTag(tag)}>{tag}</AntTag>
                       ))}
                     </div>
                   </div>
-
                   <div>
-                    <div className="text-xs" style={{ marginBottom: 8, color: '#595959' }}>标签分类（选择一级分类并可从下方选择子标签）</div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <div style={{ minWidth: 160 }}>
-                        <Select value={primarySelect ?? undefined} onValueChange={(v: string) => {
-                          setPrimarySelect(v)
-                          setCascaderValue([v, ...(secondarySelect || [])])
-                        }}>
-                          <SelectTrigger className="w-full h-9 bg-white text-gray-900 border-gray-200"><SelectValue placeholder="选择标签分类" /></SelectTrigger>
-                          <SelectContent>
-                            {tagTree.filter(Boolean).map((n) => (<SelectItem key={n.category} value={n.category}>{n.category ?? '未分类'}</SelectItem>))}
-                          </SelectContent>
+                    <div className="text-xs mb-2 text-gray-500">标签分类</div>
+                    <div className="flex gap-2 items-center">
+                      <div className="min-w-[160px]">
+                        <Select value={primarySelect ?? undefined} onValueChange={(v: string) => { setPrimarySelect(v); setCascaderValue([v, ...secondarySelect]) }}>
+                          <SelectTrigger className="w-full h-9 bg-white text-gray-900 border-gray-200"><SelectValue placeholder="选择分类" /></SelectTrigger>
+                          <SelectContent>{tagTree.filter(Boolean).map(n => <SelectItem key={n.category} value={n.category}>{n.category ?? '未分类'}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
-                      <div style={{ flex: 1 }}>
+                      <div className="flex-1">
                         <MultipleSelector
-                          value={(secondarySelect || []).map((s: string) => ({ value: s, label: s }))}
-                          options={(tagTree.find((t) => String(t.category) === String(primarySelect))?.children || []).map((c: any) => ({ value: c.name, label: c.name }))}
-                          placeholder="选择子标签（多选）"
-                          onChange={(opts?: any) => {
-                            const vals = (opts || []).map((o: any) => o.value)
-                            setSecondarySelect(vals)
-                            setCascaderValue([primarySelect || '', ...vals])
-                          }}
+                          value={secondarySelect.map(s => ({ value: s, label: s }))}
+                          options={(tagTree.find(t => t.category === primarySelect)?.children || []).map(c => ({ value: c.name, label: c.name }))}
+                          placeholder="选择子标签"
+                          onChange={(opts?: any) => { const vals = opts?.map((o: any) => o.value) || []; setSecondarySelect(vals); setCascaderValue([primarySelect || '', ...vals]) }}
                         />
                       </div>
                     </div>
                   </div>
-
                   <div>
-                    <div className="text-xs" style={{ marginBottom: 8, color: '#595959' }}>自定义标签（多个以逗号分隔）</div>
+                    <div className="text-xs mb-2 text-gray-500">自定义标签</div>
                     <MultipleSelector
-                      value={(imageLabels.filter(Boolean) || []).map((s: string) => ({ value: s, label: s }))}
-                      options={(presetTags || []).map((s: string) => ({ value: s, label: s }))}
+                      value={imageLabels.filter(Boolean).map(s => ({ value: s, label: s }))}
+                      options={presetTags.map(s => ({ value: s, label: s }))}
                       creatable
                       placeholder={t('Upload.indexTag')}
-                      onChange={(opts?: any) => handleImageLabelsChange((opts || []).map((o:any)=>o.value))}
+                      onChange={(opts?: any) => handleImageLabelsChange(opts?.map((o: any) => o.value) || [])}
                     />
                   </div>
                 </AntSpace>
@@ -992,72 +648,38 @@ export default function SimpleFileUpload() {
         </div>
       </div>
 
-      {/* File list - full width (hidden when no files) */}
+      {/* 已选文件列表 */}
       {files.length > 0 && (
         <div className="w-full">
           <AntCard>
-            {files.map((file, index) => (
-              <div key={((file as any).__key || file.name || index)} className="flex items-center justify-between p-2 border rounded mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="font-medium">{file.name}</div>
-                </div>
-                <div>
-                  <AntButton
-                    type="text"
-                    danger
-                    icon={<CloseOutlined />}
-                    onClick={() => {
-                      // @ts-expect-error - read key from possibly-augmented File
-                      const k = (file && ((file as any).__key || file.name))
-                      if (k) removeFileByKey(String(k))
-                      else onRemoveFile()
-                    }}
-                  />
-                </div>
+            {files.map((file, i) => (
+              <div key={(file as FileWithKey).__key || file.name || i} className="flex items-center justify-between p-2 border rounded mb-2">
+                <div className="font-medium">{file.name}</div>
+                <AntButton type="text" danger icon={<CloseOutlined />} onClick={() => removeFileByKey((file as FileWithKey).__key || file.name)} />
               </div>
             ))}
           </AntCard>
         </div>
       )}
 
-        <AntModal
-          title="管理常用 EXIF 选项"
-          open={isPresetModalOpen}
-          onOk={() => {
-            try {
-              const next = {
-                cameraModels: editingPresetsText.cameraModels.split(',').map(s=>s.trim()).filter(Boolean),
-                shutterSpeeds: editingPresetsText.shutterSpeeds.split(',').map(s=>s.trim()).filter(Boolean),
-                isos: editingPresetsText.isos.split(',').map(s=>s.trim()).filter(Boolean),
-                apertures: editingPresetsText.apertures.split(',').map(s=>s.trim()).filter(Boolean),
-              }
-              localStorage.setItem(presetsStorageKey, JSON.stringify(next))
-              setExifPresets(next)
-              setIsPresetModalOpen(false)
-              AntMessage.success('已保存常用 EXIF 选项')
-            } catch { AntMessage.error('保存失败') }
-          }}
-          onCancel={() => setIsPresetModalOpen(false)}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div>
-              <div className="text-xs text-gray-600 mb-1">相机机型（逗号分隔）</div>
-              <AntInput value={editingPresetsText.cameraModels} onChange={(e)=>setEditingPresetsText({...editingPresetsText, cameraModels: e.target.value})} />
-            </div>
-            <div>
-              <div className="text-xs text-gray-600 mb-1">常用快门（逗号分隔）</div>
-              <AntInput value={editingPresetsText.shutterSpeeds} onChange={(e)=>setEditingPresetsText({...editingPresetsText, shutterSpeeds: e.target.value})} />
-            </div>
-            <div>
-              <div className="text-xs text-gray-600 mb-1">常用 ISO（逗号分隔）</div>
-              <AntInput value={editingPresetsText.isos} onChange={(e)=>setEditingPresetsText({...editingPresetsText, isos: e.target.value})} />
-            </div>
-            <div>
-              <div className="text-xs text-gray-600 mb-1">常用光圈（逗号分隔）</div>
-              <AntInput value={editingPresetsText.apertures} onChange={(e)=>setEditingPresetsText({...editingPresetsText, apertures: e.target.value})} />
-            </div>
-          </div>
-        </AntModal>
+      {/* EXIF 预设管理 Modal */}
+      <AntModal title="管理常用 EXIF 选项" open={isPresetModalOpen} onCancel={() => setIsPresetModalOpen(false)}
+        onOk={() => {
+          try {
+            const parse = (s: string) => s.split(',').map(v => v.trim()).filter(Boolean)
+            const next = { cameraModels: parse(editingPresetsText.cameraModels), shutterSpeeds: parse(editingPresetsText.shutterSpeeds), isos: parse(editingPresetsText.isos), apertures: parse(editingPresetsText.apertures) }
+            localStorage.setItem(EXIF_PRESETS_KEY, JSON.stringify(next))
+            setExifPresets(next); setIsPresetModalOpen(false); AntMessage.success('已保存')
+          } catch { AntMessage.error('保存失败') }
+        }}
+      >
+        <div className="flex flex-col gap-2">
+          <div><div className="text-xs text-gray-600 mb-1">相机型号（逗号分隔）</div><AntInput value={editingPresetsText.cameraModels} onChange={e => setEditingPresetsText({ ...editingPresetsText, cameraModels: e.target.value })} /></div>
+          <div><div className="text-xs text-gray-600 mb-1">快门（逗号分隔）</div><AntInput value={editingPresetsText.shutterSpeeds} onChange={e => setEditingPresetsText({ ...editingPresetsText, shutterSpeeds: e.target.value })} /></div>
+          <div><div className="text-xs text-gray-600 mb-1">ISO（逗号分隔）</div><AntInput value={editingPresetsText.isos} onChange={e => setEditingPresetsText({ ...editingPresetsText, isos: e.target.value })} /></div>
+          <div><div className="text-xs text-gray-600 mb-1">光圈（逗号分隔）</div><AntInput value={editingPresetsText.apertures} onChange={e => setEditingPresetsText({ ...editingPresetsText, apertures: e.target.value })} /></div>
+        </div>
+      </AntModal>
     </div>
   )
 }

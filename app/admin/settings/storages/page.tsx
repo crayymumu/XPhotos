@@ -3,6 +3,7 @@
 import AlistTabs from '~/components/admin/settings/storages/alist-tabs'
 import S3Tabs from '~/components/admin/settings/storages/s3-tabs'
 import R2Tabs from '~/components/admin/settings/storages/r2-tabs'
+import OSSTabs from '~/components/admin/settings/storages/oss-tabs'
 import { Tabs } from 'antd'
 
 export default function Storages() {
@@ -16,6 +17,11 @@ export default function Storages() {
       key: 'r2',
       label: 'Cloudflare R2',
       children: <R2Tabs />
+    },
+    {
+      key: 'oss',
+      label: 'Aliyun OSS',
+      children: <OSSTabs />
     },
     {
       key: 'alist',
