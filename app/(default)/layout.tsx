@@ -1,5 +1,4 @@
 import { fetchAlbumsShow } from '~/lib/db/query/albums'
-import type { AlbumType, Config } from '~/types'
 import { fetchConfigsByKeys } from '~/lib/db/query/configs'
 import UnifiedNav from '~/components/layout/unified-nav'
 

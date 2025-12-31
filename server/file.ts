@@ -179,6 +179,7 @@ app.post('/getObjectUrl', async (c) => {
       const signed = ossSignatureUrl(client, key, 'get')
       return Response.json({ code: 200, data: signed })
     }
+    console.warn('buildOSSPublicUrl', buildOSSPublicUrl(cfg, key))
     return Response.json({ code: 200, data: buildOSSPublicUrl(cfg, key) })
   }
 })

@@ -10,11 +10,9 @@ import { Switch } from '~/components/ui/switch'
 import LivePhoto from '~/components/album/live-photo'
 import { MotionImage } from '~/components/album/motion-image'
 import { Badge } from '~/components/ui/badge'
-import { useTranslations } from 'next-intl'
 import { useBlurImageDataUrl } from '~/hooks/use-blurhash'
 
 export default function ImageView() {
-  const t = useTranslations()
   const { imageView, imageViewData, setImageView, setImageViewData } = useButtonStore(
     (state) => state,
   )

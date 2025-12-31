@@ -56,7 +56,7 @@ export default function HeroSection({ images = [] }: HeroSectionProps) {
             className="text-[32px] md:text-[48px] font-bold tracking-tight mb-[20px]"
           >
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#9d4edd] to-[#ff9505]">
-              到最深处 纵然那只是瞬间
+              摄影是一件很伤感的事情
             </span>
           </motion.h1>
 
@@ -66,7 +66,7 @@ export default function HeroSection({ images = [] }: HeroSectionProps) {
             transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
             className="text-[16px] md:text-[20px] text-[#f0f0f0] font-normal tracking-wide leading-relaxed"
           >
-            往事的光圈每一瞬间都很绝
+            每一声快门都是送别
           </motion.p>
 
           {/* 新增：玻璃磨砂 Start 按钮 */}

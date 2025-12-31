@@ -1,4 +1,3 @@
-
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
@@ -141,7 +140,6 @@ export default function ListProps(props : Readonly<ImageServerHandleProps>) {
     (state) => state,
   )
   const { data: albums } = useSWR('/api/v1/albums/get', fetcher)
-  // const { data: adminConfig } = useSWR('/api/v1/settings/get-admin-config', fetcher)
   const t = useTranslations()
 
   const dataProps: ImageListDataProps = {
