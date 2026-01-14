@@ -5,8 +5,9 @@ import { jwtVerify } from 'jose'
 const SECRET_KEY = process.env.JWT_SECRET || 'your-secret-key-should-be-long-and-random'
 const key = new TextEncoder().encode(SECRET_KEY)
 
-const GLOBAL_LIMIT = Number(process.env.RATE_LIMIT_GLOBAL || 6000) // 每分钟全局默认限制
-const SENSITIVE_LIMIT = Number(process.env.RATE_LIMIT_SENSITIVE || 2000) // 敏感接口默认限制
+const isDev = process.env.NODE_ENV === 'development'
+const GLOBAL_LIMIT = isDev ? Number.MAX_SAFE_INTEGER : Number(process.env.RATE_LIMIT_GLOBAL || 60) // 开发环境无限制
+const SENSITIVE_LIMIT = isDev ? Number.MAX_SAFE_INTEGER : Number(process.env.RATE_LIMIT_SENSITIVE || 20) // 开发环境无限制
 const WINDOW_MS = 60_000
 const IP_WHITELIST = (process.env.RATE_LIMIT_WHITELIST || '')
   .split(',')

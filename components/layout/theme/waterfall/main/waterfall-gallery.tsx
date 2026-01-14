@@ -1,6 +1,7 @@
 'use client'
 
 import type { ImageHandleProps } from '~/types/props.ts'
+import type { ImageType } from '~/types'
 import { useSwrPageTotalHook } from '~/hooks/use-swr-page-total-hook.ts'
 import useSWRInfinite from 'swr/infinite'
 import { useTranslations } from 'next-intl'
@@ -10,16 +11,39 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { ImageGallery } from '~/components/ui/image-gallery'
 import { useGalleryFilters } from '~/hooks/use-gallery-filters'
 
+// ============ 常量配置 ============
+const RENDER_BATCH_SIZE = 20      // 每批渲染图片数量
+const RENDER_INTERVAL_MS = 50     // 批次间隔时间
+const SCROLL_THRESHOLD_PX = 800   // 触发加载的滚动阈值
+const EMPTY_ARRAY: string[] = []  // 空数组引用，避免重复创建
+
+/**
+ * 瀑布流图片画廊组件
+ * 
+ * 核心功能：
+ * 1. 无限滚动加载 - 滚动到底部自动加载下一页
+ * 2. 分批渲染 - 避免大量图片同时渲染导致卡顿
+ * 3. 筛选支持 - 相机/镜头/标签多条件筛选
+ */
 export default function WaterfallGallery(props: Readonly<ImageHandleProps>) {
-  const cameras = props.filters?.cameras || []
-  const lenses = props.filters?.lenses || []
-  const tags = props.filters?.tags || []
-  const tagsOperator = props.filters?.tagsOperator || 'and'
-  const sortByShootTime = props.sortByShootTime
-  
-  const { data: pageTotal } = useSwrPageTotalHook(props)
-  
-  // 优化：使用稳定的筛选键生成函数，避免 JSON.stringify 开销
+  // ============ Props 解构 ============
+  const { filters, sortByShootTime, args, album, handle } = props
+  const cameras = filters?.cameras || EMPTY_ARRAY
+  const lenses = filters?.lenses || EMPTY_ARRAY
+  const tags = filters?.tags || EMPTY_ARRAY
+  const tagsOperator = filters?.tagsOperator || 'and'
+
+  // ============ Hooks ============
+  const t = useTranslations()
+  const { data: pageTotalData } = useSwrPageTotalHook(props)
+  const pageTotal = (pageTotalData as number) || 0
+
+  // ============ Refs & State ============
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [renderedCount, setRenderedCount] = useState(RENDER_BATCH_SIZE)
+
+  // ============ Memoized Values ============
+  // 筛选条件唯一键，用于缓存失效和依赖追踪
   const filterKey = useMemo(
     () => [
       cameras.join(','),
@@ -30,31 +54,27 @@ export default function WaterfallGallery(props: Readonly<ImageHandleProps>) {
     ].join('|'),
     [cameras, lenses, tags, tagsOperator, sortByShootTime]
   )
-  
-  const { data, error, isLoading, isValidating, size, setSize, mutate } = useSWRInfinite(
-    (index) => {
-      return [`client-${props.args}-${index}-${props.album}-${filterKey}`, index]
-    },
-    ([_, index]) => {
-      return props.handle(
-        index + 1,
-        props.album,
-        cameras.length > 0 ? cameras : undefined,
-        lenses.length > 0 ? lenses : undefined,
-        tags.length > 0 ? tags : undefined,
-        // Bug修复：只有当 tags 有值时才传递 tagsOperator，避免后端查询错误
-        tags.length > 0 ? tagsOperator : 'and',
-        sortByShootTime
-      )
-    },
+
+  // ============ 数据获取 ============
+  const { data, error, isLoading, isValidating, size, setSize, mutate } = useSWRInfinite<ImageType[]>(
+    (index) => [`client-${args}-${index}-${album}-${filterKey}`, index],
+    ([, index]: [string, number]) => handle(
+      index + 1,
+      album,
+      cameras.length > 0 ? cameras : undefined,
+      lenses.length > 0 ? lenses : undefined,
+      tags.length > 0 ? tags : undefined,
+      tags.length > 0 ? tagsOperator : 'and',
+      sortByShootTime
+    ) as Promise<ImageType[]>,
     {
       revalidateOnFocus: false,
       revalidateIfStale: false,
       revalidateOnReconnect: false,
     }
   )
-  
-  // 优化：使用公共 Hook 提取筛选逻辑，消除重复代码
+
+  // 筛选逻辑（含防抖处理）
   const { dataList, isFiltering } = useGalleryFilters({
     cameras,
     lenses,
@@ -66,57 +86,53 @@ export default function WaterfallGallery(props: Readonly<ImageHandleProps>) {
     setSize,
     mutate,
   })
-  
-  const t = useTranslations()
-  const containerRef = useRef<HTMLDivElement>(null)
-  
-  // 分批渲染：每次渲染 20 张图片
-  const BATCH_SIZE = 20
-  const [renderedCount, setRenderedCount] = useState(BATCH_SIZE)
-  
-  // 筛选条件变更时，重置渲染数量
-  useEffect(() => {
-    setRenderedCount(BATCH_SIZE)
-  }, [filterKey])
-  
-  // 逐步渲染：只渲染前 renderedCount 张图片
-  const renderedImages = useMemo(() => {
-    return dataList.slice(0, renderedCount)
-  }, [dataList, renderedCount])
-  
-  // 优化：使用 useCallback 缓存滚动处理函数，避免每次渲染都创建新函数
+
+  // ============ 派生状态 ============
+  // 当前批次渲染的图片
+  const renderedImages = useMemo(
+    () => dataList.slice(0, renderedCount),
+    [dataList, renderedCount]
+  )
+
+  // 首次加载态
+  const isInitialLoading = useMemo(
+    () => isLoading && dataList.length === 0,
+    [isLoading, dataList.length]
+  )
+
+  // ============ 事件处理 ============
+  // 滚动到底部时加载下一页
   const handleScroll = useCallback(() => {
     if (!containerRef.current || isValidating || size >= pageTotal) return
-
-    const scrollTop = window.scrollY
-    const windowHeight = window.innerHeight
-    const documentHeight = document.documentElement.scrollHeight
-
-    // 当距离底部还有 800px 时开始加载
-    if (scrollTop + windowHeight >= documentHeight - 800) {
+    const { scrollY, innerHeight } = window
+    const { scrollHeight } = document.documentElement
+    if (scrollY + innerHeight >= scrollHeight - SCROLL_THRESHOLD_PX) {
       setSize(size + 1)
     }
   }, [isValidating, size, pageTotal, setSize])
 
-  // 自动加载更多（当滚动到底部附近时）
+  // ============ 副作用 ============
+  // 筛选条件变更时重置渲染数量
+  useEffect(() => {
+    setRenderedCount(RENDER_BATCH_SIZE)
+  }, [filterKey])
+
+  // 绑定滚动监听
   useEffect(() => {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [handleScroll])
-  
-  // 逐步渲染：当已渲染的图片数量小于总数量时，继续渲染下一批
+
+  // 分批渐进渲染，每 50ms 渲染一批
   useEffect(() => {
     if (renderedCount >= dataList.length || isFiltering) return
-    
     const timer = setTimeout(() => {
-      setRenderedCount(prev => Math.min(prev + BATCH_SIZE, dataList.length))
-    }, 50) // 每 50ms 渲染一批，保证流畅
-    
+      setRenderedCount(prev => Math.min(prev + RENDER_BATCH_SIZE, dataList.length))
+    }, RENDER_INTERVAL_MS)
     return () => clearTimeout(timer)
   }, [renderedCount, dataList.length, isFiltering])
 
-  // 初始加载状态：首次加载且没有数据时显示加载动画
-  const isInitialLoading = isLoading && dataList.length === 0
+  // ============ 渲染 ============
 
   return (
     <div className="w-full min-h-screen bg-[#0f172a] dark:bg-[#0f172a]" ref={containerRef}>

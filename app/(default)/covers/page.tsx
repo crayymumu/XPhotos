@@ -1,4 +1,4 @@
-import { DestinationCard } from '~/components/ui/card-21'
+import { DestinationCard } from '~/components/ui/cover-card'
 import { fetchAlbumsShow } from '~/lib/db/query/albums'
 import { fetchClientImagesCountByAlbum } from '~/lib/db/query/images'
 import { Button } from '~/components/ui/button'
@@ -58,6 +58,11 @@ export default async function CoversPage() {
         ) : (
           <div className="text-center text-gray-500 py-20">暂无相册封面</div>
         )}
+      </div>
+      <div className="flex items-center justify-center gap-4 py-12 text-muted-foreground/50">
+        <div className="h-px w-16 bg-gradient-to-r from-transparent to-border" />
+        <span className="text-sm tracking-widest">end</span>
+        <div className="h-px w-16 bg-gradient-to-l from-transparent to-border" />
       </div>
     </div>
   )

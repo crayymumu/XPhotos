@@ -23,7 +23,7 @@ export default function HeroSection({ images = [] }: HeroSectionProps) {
   }
 
   return (
-    <div className="relative w-full h-[80vh] md:h-[100vh] flex flex-col items-center pt-[25vh] overflow-hidden bg-background">
+    <div className="relative w-full h-[calc(100vh-1rem)] sm:h-[calc(80vh-1.5rem)] md:h-[calc(100vh-2rem)] flex flex-col items-center pt-[25vh] overflow-hidden bg-background">
       {/* Dynamic Background */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-background"></div>

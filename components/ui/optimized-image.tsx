@@ -92,7 +92,6 @@ export function OptimizedImage({
         <ImageLoadingAnimation
           visible={isLoading}
           size="small"
-          className="absolute inset-0 z-10"
         />
       )}
       <Image

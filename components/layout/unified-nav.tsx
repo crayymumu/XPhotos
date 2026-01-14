@@ -2,20 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Affix } from 'antd'
 import { useTranslations } from 'next-intl'
 import Command from '~/components/layout/command'
 import { authClient } from '~/lib/auth-client'
-import { useTheme } from 'next-themes'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '~/lib/utils'
 import type { AlbumType } from '~/types'
 import { 
-  HomeIcon, 
-  ImageIcon,
-  SunIcon, 
-  MoonIcon, 
   HamburgerMenuIcon,
   Cross1Icon
 } from '@radix-ui/react-icons'
@@ -29,50 +24,56 @@ interface UnifiedNavProps {
 
 export default function UnifiedNav({
   albums,
-  currentAlbum = '/',
-  currentTheme = '2',
   siteTitle = 'XPhotos',
 }: UnifiedNavProps) {
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const router = useRouter()
+  // ========== Hooks ==========
   const pathname = usePathname()
   const t = useTranslations()
   const { data: session } = authClient.useSession()
-  const { resolvedTheme, setTheme } = useTheme()
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  // ========== UI State ==========
+  const [isNavScrolled, setIsNavScrolled] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
+  // ========== Effects ==========
+  // 监听页面滚动，更新导航栏样式
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10)
+      setIsNavScrolled(window.scrollY > 10)
     }
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Close mobile menu on route change
+  // 路由变化时自动关闭移动端菜单
   useEffect(() => {
-    setMobileMenuOpen(false)
+    setIsMobileMenuOpen(false)
   }, [pathname])
 
-  // Bug修复：导航顺序要求「相册分类」之后再放「关于我」，且倒数第二
-  // 需求修改：将「景行集」与「城隅寻迹」的位置互换
+  // ========== Derived Data ==========
   const navLinks = [
-    { name: '序章', href: '/', icon: <HomeIcon className="w-4 h-4" /> },
-    { name: '城隅寻迹', href: '/covers', icon: <ImageIcon className="w-4 h-4" /> },
+    { name: '曙光', href: '/' },
+    { name: '随片札记', href: '/covers' },
+    { name: '行者集', href: '/albums' },
+    // { name: '关于我', href: '/about' },
+    { name: session ? t('Link.dashboard') : t('Login.signIn'), href: session ? '/admin' : '/login' },
   ]
 
-  // Filter albums for the dropdown/list
+  // 过滤出需要在菜单中展示的相册
   const visibleAlbums = albums.filter((album) => album.album_value !== '/' && album.show === 0)
 
+  // ========== Helpers ==========
+  // 判断当前路由是否激活
   const isActive = (path: string) => {
     if (path === '/') return pathname === '/'
     return pathname.startsWith(path)
   }
+
+  // 切换移动端菜单状态
+  const toggleMobileMenu = () => setIsMobileMenuOpen(prev => !prev)
+
+  // 关闭移动端菜单
+  const closeMobileMenu = () => setIsMobileMenuOpen(false)
 
   return (
     <>
@@ -81,10 +82,10 @@ export default function UnifiedNav({
           className={cn(
             'w-full h-[60px] fixed top-0 left-0 z-50 transition-all duration-300',
             'backdrop-blur-[12px] bg-[#1a1a1a]/15 border-b border-transparent',
-            isScrolled && 'border-b-[1px] border-white/10 shadow-lg'
+            isNavScrolled && 'border-b-[1px] border-white/10 shadow-lg'
           )}
           style={{
-            borderBottomImage: isScrolled ? 'linear-gradient(to right, #9d4edd, #ff9505) 1' : 'none'
+            borderBottom: isNavScrolled ? 'linear-gradient(to right, #9d4edd, #ff9505) 1' : 'none'
           }}
         >
           <div className="max-w-[1400px] mx-auto px-4 h-full flex items-center justify-between">
@@ -121,76 +122,15 @@ export default function UnifiedNav({
                   )}
                 </Link>
               ))}
-
-              {/* 需求修改：将「景行集」放在「城隅寻迹」之后 */}
-              <Link
-                href="/albums"
-                className="relative group py-2"
-              >
-                <span
-                  className={cn(
-                    'text-[16px] transition-all duration-300 block select-none',
-                    isActive('/albums')
-                      ? 'bg-clip-text text-transparent bg-gradient-to-r from-[#9d4edd] to-[#ff9505] font-medium'
-                      : 'text-[#e0e0e0] group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-[#9d4edd] group-hover:to-[#ff9505] group-hover:translate-x-[5px]',
-                  )}
-                >
-                  景行集
-                </span>
-                {isActive('/albums') && (
-                  <motion.div
-                    layoutId="underline"
-                    className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-[#9d4edd] to-[#ff9505]"
-                  />
-                )}
-              </Link>
-
-              {/* 关于我：放在相册分类之后、倒数第二 */}
-              <Link
-                href="/about"
-                className="relative group py-2"
-              >
-                <span
-                  className={cn(
-                    'text-[16px] transition-all duration-300 block select-none',
-                    isActive('/about')
-                      ? 'bg-clip-text text-transparent bg-gradient-to-r from-[#9d4edd] to-[#ff9505] font-medium'
-                      : 'text-[#e0e0e0] group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-[#9d4edd] group-hover:to-[#ff9505] group-hover:translate-x-[5px]',
-                  )}
-                >
-                  关于我
-                </span>
-                {isActive('/about') && (
-                  <motion.div
-                    layoutId="underline"
-                    className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-[#9d4edd] to-[#ff9505]"
-                  />
-                )}
-              </Link>
-
-              {/* Console / Login */}
-              <Link
-                href={session ? '/admin' : '/login'}
-                className="relative group py-2"
-              >
-                 <span className={cn(
-                      'text-[16px] transition-all duration-300 block',
-                      isActive('/admin') || isActive('/login')
-                        ? 'bg-clip-text text-transparent bg-gradient-to-r from-[#9d4edd] to-[#ff9505] font-medium'
-                        : 'text-[#e0e0e0] group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-[#9d4edd] group-hover:to-[#ff9505] group-hover:translate-x-[5px]'
-                    )}>
-                    {session ? t('Link.dashboard') : t('Login.signIn')}
-                 </span>
-              </Link>
             </div>
 
             {/* Mobile Menu Toggle */}
             <div className="md:hidden flex items-center">
               <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                onClick={toggleMobileMenu}
                 className="p-2 text-[#e0e0e0] hover:text-white transition-colors"
               >
-                {mobileMenuOpen ? <Cross1Icon className="w-6 h-6" /> : <HamburgerMenuIcon className="w-6 h-6" />}
+                {isMobileMenuOpen ? <Cross1Icon className="w-6 h-6" /> : <HamburgerMenuIcon className="w-6 h-6" />}
               </button>
             </div>
           </div>
@@ -199,7 +139,7 @@ export default function UnifiedNav({
 
       {/* Mobile Menu Overlay */}
       <AnimatePresence>
-        {mobileMenuOpen && (
+        {isMobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -213,26 +153,11 @@ export default function UnifiedNav({
                   key={link.href}
                   href={link.href}
                   className="text-2xl font-medium text-gray-200 hover:text-white"
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={closeMobileMenu}
                 >
                   {link.name}
                 </Link>
               ))}
-              {/* 需求修改：将「景行集」放在「城隅寻迹」之后 */}
-              <Link
-                href="/albums"
-                className="text-2xl font-medium text-gray-200 hover:text-white"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                景行集
-              </Link>
-              <Link
-                href="/about"
-                className="text-2xl font-medium text-gray-200 hover:text-white"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                关于我
-              </Link>
               
               <div className="text-sm text-gray-500 uppercase tracking-wider mt-4">相册</div>
               <div className="grid grid-cols-2 gap-4">
@@ -241,22 +166,12 @@ export default function UnifiedNav({
                     key={album.id}
                     href={album.album_value}
                     className="text-lg text-gray-300 hover:text-white"
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={closeMobileMenu}
                   >
                     {album.name}
                   </Link>
                 ))}
               </div>
-
-              <div className="h-[1px] bg-white/10 my-4" />
-
-              <Link
-                href={session ? '/admin' : '/login'}
-                className="text-xl text-gray-200"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {session ? t('Link.dashboard') : t('Login.signIn')}
-              </Link>
             </div>
           </motion.div>
         )}

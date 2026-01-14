@@ -12,9 +12,7 @@
 /* 图片加载动效容器（内联版本） */
 .image-loading-animation-container {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
   z-index: 10;
   display: flex;
   align-items: center;
