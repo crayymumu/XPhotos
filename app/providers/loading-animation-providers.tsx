@@ -1,87 +1,76 @@
 'use client'
 
-import { LoadingAnimation } from '~/components/ui/loading-animation'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
+import { LoadingAnimation } from '~/components/ui/loading-animation'
+
+/** 加载动画延迟时间（ms） */
+const LOADING_DELAY = 300
 
 export function LoadingAnimationProviders({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const pathname = usePathname()
+  // === Refs（不触发渲染的可变值）===
   const prevPathnameRef = useRef<string | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // 客户端挂载
-  useEffect(() => {
-    setMounted(true)
+  // === State（触发渲染的响应式状态）===
+  const [isMounted, setIsMounted] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // === Derived State（从其他状态派生）===
+  const pathname = usePathname()
+
+  // === Callbacks（稳定的回调函数）===
+  const hideLoadingWithDelay = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => setIsLoading(false), LOADING_DELAY)
   }, [])
 
-  // 监听路由变化，显示加载动画
-  useEffect(() => {
-    if (!mounted) return
-
-    // 清除之前的定时器
+  const clearTimer = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
     }
+  }, [])
 
-    // 路由变化时显示加载动画
+  // === Effects ===
+
+  /** 客户端挂载检测 */
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  /** 路由变化监听 + 首次加载完成处理（合并相关逻辑） */
+  useEffect(() => {
+    if (!isMounted) return
+
+    clearTimer()
+
     const isRouteChange = prevPathnameRef.current !== null && prevPathnameRef.current !== pathname
-    
+
     if (isRouteChange) {
       setIsLoading(true)
     }
 
-    // 延迟隐藏加载动画，给页面内容时间加载
-    // 使用 requestAnimationFrame 确保在 DOM 更新后执行
-    const rafId = requestAnimationFrame(() => {
-      timeoutRef.current = setTimeout(() => {
-        setIsLoading(false)
-      }, 300) // 300ms 延迟，确保页面内容已开始渲染
-    })
-
-    // 更新路径引用
+    const rafId = requestAnimationFrame(() => hideLoadingWithDelay())
     prevPathnameRef.current = pathname
+
+    const handleLoad = () => hideLoadingWithDelay()
+
+    if (document.readyState !== 'complete') {
+      window.addEventListener('load', handleLoad)
+    }
 
     return () => {
       cancelAnimationFrame(rafId)
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
+      clearTimer()
+      window.removeEventListener('load', handleLoad)
     }
-  }, [pathname, mounted])
-
-  // 首次页面加载完成后隐藏动画
-  useEffect(() => {
-    if (!mounted) return
-
-    const handleLoad = () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-      timeoutRef.current = setTimeout(() => {
-        setIsLoading(false)
-      }, 300)
-    }
-
-    if (document.readyState === 'complete') {
-      handleLoad()
-    } else {
-      window.addEventListener('load', handleLoad)
-      return () => {
-        window.removeEventListener('load', handleLoad)
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current)
-        }
-      }
-    }
-  }, [mounted])
+  }, [pathname, isMounted, hideLoadingWithDelay, clearTimer])
 
   return (
     <>
-      {mounted && <LoadingAnimation visible={isLoading} />}
+      {isMounted && <LoadingAnimation visible={isLoading} />}
       {children}
     </>
   )
 }
-

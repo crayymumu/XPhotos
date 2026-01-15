@@ -1,23 +1,23 @@
 'use client'
 
-import { AppProgressBar as ProgressBar } from 'next-nprogress-bar'
 import { useState, useEffect } from 'react'
+import { AppProgressBar as ProgressBar } from 'next-nprogress-bar'
 
-export function ProgressBarProviders({children}: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false)
+/** 进度条颜色 */
+const PROGRESS_BAR_COLOR = 'oklch(87.2% 0.01 258.338)'
+
+/** 路由切换进度条 Provider */
+export function ProgressBarProviders({ children }: { children: React.ReactNode }) {
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
+    setIsMounted(true)
   }, [])
 
   return (
     <>
-      {mounted && (
-        <ProgressBar
-          height="2px"
-          color="oklch(87.2% 0.01 258.338)"
-          shallowRouting
-        />
+      {isMounted && (
+        <ProgressBar height="2px" color={PROGRESS_BAR_COLOR} shallowRouting />
       )}
       {children}
     </>

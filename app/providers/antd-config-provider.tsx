@@ -7,7 +7,8 @@ import { useTheme } from 'next-themes'
 
 const { defaultAlgorithm, darkAlgorithm } = theme
 
-const THEME_CONFIG = {
+/** Antd 基础主题配置 */
+const BASE_THEME_CONFIG = {
   token: {
     colorPrimary: '#1677ff',
     colorSuccess: '#52c41a',
@@ -49,39 +50,43 @@ const THEME_CONFIG = {
   },
 }
 
+/** 根据主题模式生成组件样式配置 */
+const getComponentStyles = (isDark: boolean) => ({
+  Layout: {
+    headerBg: isDark ? '#141414' : '#ffffff',
+    siderBg: isDark ? '#141414' : '#ffffff',
+    bodyBg: isDark ? '#000000' : '#f5f5f5',
+  },
+  Menu: {
+    itemBg: 'transparent',
+    itemSelectedBg: isDark ? 'rgba(22, 119, 255, 0.15)' : 'rgba(22, 119, 255, 0.1)',
+    itemHoverBg: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+    horizontalItemSelectedColor: '#1677ff',
+    itemSelectedColor: '#1677ff',
+  },
+  Card: {
+    headerBg: 'transparent',
+    boxShadow:
+      '0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)',
+  },
+  Button: {
+    primaryShadow: '0 2px 0 rgba(22, 119, 255, 0.1)',
+  },
+})
+
+/** Antd 主题配置 Provider，自动响应 next-themes 的暗色模式 */
 export function AntdConfigProvider({ children }: { children: React.ReactNode }) {
   const { theme: currentTheme } = useTheme()
   const isDark = currentTheme === 'dark'
 
-  const customTheme = {
-    ...THEME_CONFIG,
+  const themeConfig = {
+    ...BASE_THEME_CONFIG,
     algorithm: isDark ? darkAlgorithm : defaultAlgorithm,
-    components: {
-      Layout: {
-        headerBg: isDark ? '#141414' : '#ffffff',
-        siderBg: isDark ? '#141414' : '#ffffff',
-        bodyBg: isDark ? '#000000' : '#f5f5f5',
-      },
-      Menu: {
-        itemBg: 'transparent',
-        itemSelectedBg: isDark ? 'rgba(22, 119, 255, 0.15)' : 'rgba(22, 119, 255, 0.1)',
-        itemHoverBg: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-        horizontalItemSelectedColor: '#1677ff',
-        itemSelectedColor: '#1677ff',
-      },
-      Card: {
-        headerBg: 'transparent',
-        boxShadow:
-          '0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)',
-      },
-      Button: {
-        primaryShadow: '0 2px 0 rgba(22, 119, 255, 0.1)',
-      },
-    },
+    components: getComponentStyles(isDark),
   }
 
   return (
-    <ConfigProvider theme={customTheme} locale={zhCN}>
+    <ConfigProvider theme={themeConfig} locale={zhCN}>
       {children}
     </ConfigProvider>
   )

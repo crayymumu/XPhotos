@@ -2,21 +2,19 @@
 
 import { type ReactNode, createContext, useRef, useContext } from 'react'
 import { type StoreApi, useStore } from 'zustand'
-
 import { type ConfigStore, createConfigStore, initConfigStore } from '~/stores/config-stores'
 
-export const ConfigStoreContext = createContext<StoreApi<ConfigStore> | null>(
-  null,
-)
+/** Config 状态的 Context */
+export const ConfigStoreContext = createContext<StoreApi<ConfigStore> | null>(null)
 
 export interface ConfigStoreProviderProps {
   children: ReactNode
 }
 
-export const ConfigStoreProvider = ({
-  children,
-}: ConfigStoreProviderProps) => {
-  const storeRef = useRef<StoreApi<ConfigStore>>()
+/** 提供 Config 全局状态的 Provider */
+export const ConfigStoreProvider = ({ children }: ConfigStoreProviderProps) => {
+  const storeRef = useRef<StoreApi<ConfigStore> | null>(null)
+
   if (!storeRef.current) {
     storeRef.current = createConfigStore(initConfigStore())
   }
@@ -28,14 +26,13 @@ export const ConfigStoreProvider = ({
   )
 }
 
-export const useConfigStore = <T,>(
-  selector: (store: ConfigStore) => T,
-): T => {
-  const configStoreContext = useContext(ConfigStoreContext)
+/** 获取 Config Store 的 Hook，必须在 ConfigStoreProvider 内使用 */
+export const useConfigStore = <T,>(selector: (store: ConfigStore) => T): T => {
+  const context = useContext(ConfigStoreContext)
 
-  if (!configStoreContext) {
-    throw new Error('useConfigStore must be use within ConfigStoreProvider')
+  if (!context) {
+    throw new Error('useConfigStore must be used within ConfigStoreProvider')
   }
 
-  return useStore(configStoreContext, selector)
+  return useStore(context, selector)
 }

@@ -2,21 +2,19 @@
 
 import { type ReactNode, createContext, useRef, useContext } from 'react'
 import { type StoreApi, useStore } from 'zustand'
-
 import { type ButtonStore, createButtonStore, initButtonStore } from '~/stores/button-stores'
 
-export const ButtonStoreContext = createContext<StoreApi<ButtonStore> | null>(
-  null,
-)
+/** Button 状态的 Context */
+export const ButtonStoreContext = createContext<StoreApi<ButtonStore> | null>(null)
 
 export interface ButtonStoreProviderProps {
   children: ReactNode
 }
 
-export const ButtonStoreProvider = ({
-  children,
-}: ButtonStoreProviderProps) => {
-  const storeRef = useRef<StoreApi<ButtonStore>>()
+/** 提供 Button 全局状态的 Provider */
+export const ButtonStoreProvider = ({ children }: ButtonStoreProviderProps) => {
+  const storeRef = useRef<StoreApi<ButtonStore> | null>(null)
+
   if (!storeRef.current) {
     storeRef.current = createButtonStore(initButtonStore())
   }
@@ -28,14 +26,13 @@ export const ButtonStoreProvider = ({
   )
 }
 
-export const useButtonStore = <T,>(
-  selector: (store: ButtonStore) => T,
-): T => {
-  const buttonStoreContext = useContext(ButtonStoreContext)
+/** 获取 Button Store 的 Hook，必须在 ButtonStoreProvider 内使用 */
+export const useButtonStore = <T,>(selector: (store: ButtonStore) => T): T => {
+  const context = useContext(ButtonStoreContext)
 
-  if (!buttonStoreContext) {
-    throw new Error('useButtonStore must be use within ButtonStoreProvider')
+  if (!context) {
+    throw new Error('useButtonStore must be used within ButtonStoreProvider')
   }
 
-  return useStore(buttonStoreContext, selector)
+  return useStore(context, selector)
 }
