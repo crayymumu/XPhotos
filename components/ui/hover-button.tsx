@@ -3,85 +3,96 @@
 import * as React from 'react'
 import { cn } from '~/lib/utils'
 
+// 圆圈粒子状态
+interface CircleParticle {
+  id: number
+  x: number
+  y: number
+  color: string
+  fadeState: 'in' | 'out' | null
+}
+
 interface HoverButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode
 }
 
+/**
+ * 悬停按钮组件 - 鼠标移动时产生发光粒子效果
+ */
 const HoverButton = React.forwardRef<HTMLButtonElement, HoverButtonProps>(
   ({ className, children, ...props }, ref) => {
-    const buttonRef = React.useRef<HTMLButtonElement>(null)
-    const [isListening, setIsListening] = React.useState(false)
-    const [circles, setCircles] = React.useState<Array<{
-      id: number
-      x: number
-      y: number
-      color: string
-      fadeState: 'in' | 'out' | null
-    }>>([])
-    const lastAddedRef = React.useRef(0)
+    // === Refs ===
+    const internalRef = React.useRef<HTMLButtonElement>(null)
+    const buttonRef = (ref as React.RefObject<HTMLButtonElement>) || internalRef
+    const lastAddedTimeRef = React.useRef(0)
+    const pendingTimersRef = React.useRef<Set<number>>(new Set())
 
-    const createCircle = React.useCallback((x: number, y: number) => {
+    // === State ===
+    const [isPointerInside, setIsPointerInside] = React.useState(false)
+    const [particles, setParticles] = React.useState<CircleParticle[]>([])
+
+    // === Callbacks ===
+    // 调度粒子动画：淡入 -> 淡出 -> 移除
+    const scheduleParticleAnimation = React.useCallback((particleId: number) => {
+      const fadeInTimer = window.setTimeout(() => {
+        setParticles((prev) =>
+          prev.map((p) => (p.id === particleId ? { ...p, fadeState: 'in' } : p))
+        )
+        pendingTimersRef.current.delete(fadeInTimer)
+      }, 0)
+      pendingTimersRef.current.add(fadeInTimer)
+
+      const fadeOutTimer = window.setTimeout(() => {
+        setParticles((prev) =>
+          prev.map((p) => (p.id === particleId ? { ...p, fadeState: 'out' } : p))
+        )
+        pendingTimersRef.current.delete(fadeOutTimer)
+      }, 1000)
+      pendingTimersRef.current.add(fadeOutTimer)
+
+      const removeTimer = window.setTimeout(() => {
+        setParticles((prev) => prev.filter((p) => p.id !== particleId))
+        pendingTimersRef.current.delete(removeTimer)
+      }, 2200)
+      pendingTimersRef.current.add(removeTimer)
+    }, [])
+
+    // 创建粒子
+    const createParticle = React.useCallback((x: number, y: number) => {
       const buttonWidth = buttonRef.current?.offsetWidth || 0
       const xPos = x / buttonWidth
-      const color = `linear-gradient(to right, var(--circle-start) ${xPos * 100}%, var(--circle-end) ${
-        xPos * 100
-      }%)`
+      const color = `linear-gradient(to right, var(--circle-start) ${xPos * 100}%, var(--circle-end) ${xPos * 100}%)`
+      const particleId = Date.now()
 
-      setCircles((prev) => [
-        ...prev,
-        { id: Date.now(), x, y, color, fadeState: null },
-      ])
-    }, [])
+      setParticles((prev) => [...prev, { id: particleId, x, y, color, fadeState: null }])
+      scheduleParticleAnimation(particleId)
+    }, [buttonRef, scheduleParticleAnimation])
 
     const handlePointerMove = React.useCallback(
       (event: React.PointerEvent<HTMLButtonElement>) => {
-        if (!isListening) return
-        
+        if (!isPointerInside) return
+
         const currentTime = Date.now()
-        if (currentTime - lastAddedRef.current > 100) {
-          lastAddedRef.current = currentTime
+        if (currentTime - lastAddedTimeRef.current > 100) {
+          lastAddedTimeRef.current = currentTime
           const rect = event.currentTarget.getBoundingClientRect()
-          const x = event.clientX - rect.left
-          const y = event.clientY - rect.top
-          createCircle(x, y)
+          createParticle(event.clientX - rect.left, event.clientY - rect.top)
         }
       },
-      [isListening, createCircle]
+      [isPointerInside, createParticle]
     )
 
-    const handlePointerEnter = React.useCallback(() => {
-      setIsListening(true)
-    }, [])
+    const handlePointerEnter = React.useCallback(() => setIsPointerInside(true), [])
+    const handlePointerLeave = React.useCallback(() => setIsPointerInside(false), [])
 
-    const handlePointerLeave = React.useCallback(() => {
-      setIsListening(false)
-    }, [])
-
+    // === Effects ===
+    // 组件卸载时清理所有定时器
     React.useEffect(() => {
-      circles.forEach((circle) => {
-        if (!circle.fadeState) {
-          setTimeout(() => {
-            setCircles((prev) =>
-              prev.map((c) =>
-                c.id === circle.id ? { ...c, fadeState: 'in' } : c
-              )
-            )
-          }, 0)
-
-          setTimeout(() => {
-            setCircles((prev) =>
-              prev.map((c) =>
-                c.id === circle.id ? { ...c, fadeState: 'out' } : c
-              )
-            )
-          }, 1000)
-
-          setTimeout(() => {
-            setCircles((prev) => prev.filter((c) => c.id !== circle.id))
-          }, 2200)
-        }
-      })
-    }, [circles])
+      const timers = pendingTimersRef.current
+      return () => {
+        timers.forEach((timer) => clearTimeout(timer))
+      }
+    }, [])
 
     return (
       <button
@@ -106,9 +117,9 @@ const HoverButton = React.forwardRef<HTMLButtonElement, HoverButtonProps>(
         style={{
           '--circle-start': 'var(--tw-gradient-from, #a0d9f8)',
           '--circle-end': 'var(--tw-gradient-to, #3a5bbf)',
-        }}
+        } as React.CSSProperties}
       >
-        {circles.map(({ id, x, y, color, fadeState }) => (
+        {particles.map(({ id, x, y, color, fadeState }) => (
           <div
             key={id}
             className={cn(
@@ -118,11 +129,7 @@ const HoverButton = React.forwardRef<HTMLButtonElement, HoverButtonProps>(
               fadeState === 'out' && 'opacity-0 duration-[1.2s]',
               !fadeState && 'opacity-0'
             )}
-            style={{
-              left: x,
-              top: y,
-              background: color,
-            }}
+            style={{ left: x, top: y, background: color }}
           />
         ))}
         {children}

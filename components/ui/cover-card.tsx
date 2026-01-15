@@ -1,33 +1,33 @@
 'use client'
 
 import * as React from 'react'
-import { cn } from '~/lib/utils' // Your utility for merging class names
+import { cn } from '~/lib/utils'
 import Link from 'next/link'
 
-// Define the props for the DestinationCard component
-interface DestinationCardProps extends React.HTMLAttributes<HTMLDivElement> {
-  imageUrl: string;
-  location: string;
-  flag?: string;
-  stats: string;
-  href: string;
-  themeColor: string; // e.g., "150 50% 25%" for a deep green
-  exploreText?: string;
+interface CoverCardProps extends React.HTMLAttributes<HTMLDivElement> {
+  imageUrl: string
+  location: string
+  flag?: string
+  stats: string
+  href: string
+  themeColor: string
+  exploreText?: string
 }
 
-// Helper to convert RGB to HSL
-function rgbToHsl(r: number, g: number, b: number) {
+/**
+ * RGB 转 HSL 颜色格式
+ */
+function rgbToHsl(r: number, g: number, b: number): string {
   r /= 255
   g /= 255
   b /= 255
   const max = Math.max(r, g, b)
   const min = Math.min(r, g, b)
-  let h = 0, s
+  let h = 0
+  let s = 0
   const l = (max + min) / 2
 
-  if (max === min) {
-    h = s = 0 // achromatic
-  } else {
+  if (max !== min) {
     const d = max - min
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
     switch (max) {
@@ -41,9 +41,11 @@ function rgbToHsl(r: number, g: number, b: number) {
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
 }
 
-// Hook to extract color from bottom 20% of image
-function useImageColor(imageUrl: string, fallback: string) {
-  const [color, setColor] = React.useState(fallback)
+/**
+ * 从图片底部 20% 区域提取主色调的 Hook
+ */
+function useImageDominantColor(imageUrl: string, fallbackColor: string): string {
+  const [dominantColor, setDominantColor] = React.useState(fallbackColor)
 
   React.useEffect(() => {
     if (!imageUrl) return
@@ -58,52 +60,47 @@ function useImageColor(imageUrl: string, fallback: string) {
         const ctx = canvas.getContext('2d')
         if (!ctx) return
 
-        // We only care about the bottom 20%
-        const heightToSample = Math.floor(img.height * 0.2)
-        const startY = img.height - heightToSample
-        
-        if (heightToSample <= 0) return
+        const sampleHeight = Math.floor(img.height * 0.2)
+        const startY = img.height - sampleHeight
+        if (sampleHeight <= 0) return
 
         canvas.width = img.width
-        canvas.height = heightToSample
+        canvas.height = sampleHeight
+        ctx.drawImage(img, 0, startY, img.width, sampleHeight, 0, 0, img.width, sampleHeight)
 
-        // Draw the bottom part of the image onto the canvas
-        ctx.drawImage(img, 0, startY, img.width, heightToSample, 0, 0, img.width, heightToSample)
+        const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        let rSum = 0, gSum = 0, bSum = 0, count = 0
 
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const data = imageData.data
-        
-        let r = 0, g = 0, b = 0
-        let count = 0
-
-        // Sample every 10th pixel to save performance
-        for (let i = 0; i < data.length; i += 4 * 10) {
-          r += data[i]
-          g += data[i + 1]
-          b += data[i + 2]
+        // 每隔 10 个像素采样以提升性能
+        for (let i = 0; i < data.length; i += 40) {
+          rSum += data[i]
+          gSum += data[i + 1]
+          bSum += data[i + 2]
           count++
         }
 
         if (count > 0) {
-          r = Math.round(r / count)
-          g = Math.round(g / count)
-          b = Math.round(b / count)
-          setColor(rgbToHsl(r, g, b))
+          setDominantColor(rgbToHsl(
+            Math.round(rSum / count),
+            Math.round(gSum / count),
+            Math.round(bSum / count)
+          ))
         }
-      } catch (e) {
-        // console.warn("Failed to extract color from image", e);
-        // Keep fallback on error (e.g. CORS)
+      } catch {
+        // CORS 或其他错误时保持 fallback
       }
     }
   }, [imageUrl])
 
-  return color
+  return dominantColor
 }
 
-const DestinationCard = React.forwardRef<HTMLDivElement, DestinationCardProps>(
-  ({ className, imageUrl, location, flag, stats, href, themeColor: initialThemeColor, exploreText = 'Explore Now', ...props }, ref) => {
-    
-    const themeColor = useImageColor(imageUrl, initialThemeColor)
+/**
+ * 封面卡片组件 - 自动从图片提取主题色
+ */
+const CoverCard = React.forwardRef<HTMLDivElement, CoverCardProps>(
+  ({ className, imageUrl, location, flag, stats, href, themeColor: fallbackThemeColor, ...props }, ref) => {
+    const themeColor = useImageDominantColor(imageUrl, fallbackThemeColor)
 
     return (
       // The 'group' class enables hover effects on child elements
@@ -158,6 +155,6 @@ const DestinationCard = React.forwardRef<HTMLDivElement, DestinationCardProps>(
     )
   }
 )
-DestinationCard.displayName = 'DestinationCard'
+CoverCard.displayName = 'CoverCard'
 
-export { DestinationCard }
+export { CoverCard }

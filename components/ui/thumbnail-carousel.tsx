@@ -5,38 +5,51 @@ import { motion, useMotionValue, animate } from 'framer-motion'
 import Image from 'next/image'
 import type { ImageType } from '~/types'
 
-interface ThumbnailCarouselProps {
-  images: ImageType[]
-}
-
+// 缩略图轮播组件的尺寸常量
 const FULL_WIDTH_PX = 120
 const COLLAPSED_WIDTH_PX = 35
 const GAP_PX = 2
 const MARGIN_PX = 2
 
-import type { ImageType } from '~/types'
-function Thumbnails({ index, setIndex, items }: { index: number, setIndex: (i: number) => void, items: ImageType[] }) {
+interface ThumbnailCarouselProps {
+  images: ImageType[]
+}
+
+interface ThumbnailItem {
+  id: string
+  url: string
+  title: string
+}
+
+interface ThumbnailsProps {
+  currentIndex: number
+  onIndexChange: (index: number) => void
+  items: ThumbnailItem[]
+}
+
+/**
+ * 缩略图导航组件 - 展示可点击的图片缩略图列表
+ */
+function Thumbnails({ currentIndex, onIndexChange, items }: ThumbnailsProps) {
   const thumbnailsRef = useRef<HTMLDivElement>(null)
 
+  // 当前选中项变化时，自动滚动到居中位置
   useEffect(() => {
-    if (thumbnailsRef.current) {
-      let scrollPosition = 0
-      for (let i = 0; i < index; i++) {
-        scrollPosition += COLLAPSED_WIDTH_PX + GAP_PX
-      }
+    const container = thumbnailsRef.current
+    if (!container) return
 
-      scrollPosition += MARGIN_PX
-
-      const containerWidth = thumbnailsRef.current.offsetWidth
-      const centerOffset = containerWidth / 2 - FULL_WIDTH_PX / 2
-      scrollPosition -= centerOffset
-
-      thumbnailsRef.current.scrollTo({
-        left: scrollPosition,
-        behavior: 'smooth',
-      })
+    let scrollPosition = 0
+    for (let i = 0; i < currentIndex; i++) {
+      scrollPosition += COLLAPSED_WIDTH_PX + GAP_PX
     }
-  }, [index])
+    scrollPosition += MARGIN_PX
+
+    const containerWidth = container.offsetWidth
+    const centerOffset = containerWidth / 2 - FULL_WIDTH_PX / 2
+    scrollPosition -= centerOffset
+
+    container.scrollTo({ left: scrollPosition, behavior: 'smooth' })
+  }, [currentIndex])
 
   return (
     <div
@@ -53,9 +66,9 @@ function Thumbnails({ index, setIndex, items }: { index: number, setIndex: (i: n
         {items.map((item, i) => (
           <motion.button
             key={item.id}
-            onClick={() => setIndex(i)}
+            onClick={() => onIndexChange(i)}
             initial={false}
-            animate={i === index ? 'active' : 'inactive'}
+            animate={i === currentIndex ? 'active' : 'inactive'}
             variants={{
               active: {
                 width: FULL_WIDTH_PX,
@@ -86,31 +99,42 @@ function Thumbnails({ index, setIndex, items }: { index: number, setIndex: (i: n
   )
 }
 
+/**
+ * 缩略图轮播组件 - 支持拖拽和缩略图导航
+ */
 export default function ThumbnailCarousel({ images }: ThumbnailCarouselProps) {
-  const [index, setIndex] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
+  // === Refs ===
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const x = useMotionValue(0)
+  // === State ===
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
 
-  const items = images.map(img => ({
-    id: img.id,
-    url: img.url || img.preview_url || '',
-    title: img.title || 'Untitled'
-  })).filter(item => item.url)
+  // === Motion Values ===
+  const translateX = useMotionValue(0)
 
+  // === Derived Data ===
+  const items: ThumbnailItem[] = images
+    .map(img => ({
+      id: img.id,
+      url: img.url || img.preview_url || '',
+      title: img.title || 'Untitled'
+    }))
+    .filter(item => item.url)
+
+  // 拖拽结束后，平滑过渡到目标位置
   useEffect(() => {
-    if (!isDragging && containerRef.current) {
-      const containerWidth = containerRef.current.offsetWidth || 1
-      const targetX = -index * containerWidth
+    if (isDragging || !containerRef.current) return
 
-      animate(x, targetX, {
-        type: 'spring',
-        stiffness: 300,
-        damping: 30,
-      })
-    }
-  }, [index, x, isDragging])
+    const containerWidth = containerRef.current.offsetWidth || 1
+    const targetX = -currentIndex * containerWidth
+
+    animate(translateX, targetX, {
+      type: 'spring',
+      stiffness: 300,
+      damping: 30,
+    })
+  }, [currentIndex, translateX, isDragging])
 
   if (items.length === 0) return null
 
@@ -125,28 +149,26 @@ export default function ThumbnailCarousel({ images }: ThumbnailCarouselProps) {
             dragElastic={0.2}
             dragMomentum={false}
             onDragStart={() => setIsDragging(true)}
-            onDragEnd={(e, info) => {
+            onDragEnd={(_, info) => {
               setIsDragging(false)
               const containerWidth = containerRef.current?.offsetWidth || 1
-              const offset = info.offset.x
-              const velocity = info.velocity.x
+              const { offset, velocity } = info
 
-              let newIndex = index
+              let nextIndex = currentIndex
 
-              // If fast swipe, use velocity
-              if (Math.abs(velocity) > 500) {
-                newIndex = velocity > 0 ? index - 1 : index + 1
+              // 快速滑动时使用速度判断
+              if (Math.abs(velocity.x) > 500) {
+                nextIndex = velocity.x > 0 ? currentIndex - 1 : currentIndex + 1
               }
-              // Otherwise use offset threshold (30% of container width)
-              else if (Math.abs(offset) > containerWidth * 0.3) {
-                newIndex = offset > 0 ? index - 1 : index + 1
+              // 否则使用偏移量阈值(30%)
+              else if (Math.abs(offset.x) > containerWidth * 0.3) {
+                nextIndex = offset.x > 0 ? currentIndex - 1 : currentIndex + 1
               }
 
-              // Clamp index
-              newIndex = Math.max(0, Math.min(items.length - 1, newIndex))
-              setIndex(newIndex)
+              nextIndex = Math.max(0, Math.min(items.length - 1, nextIndex))
+              setCurrentIndex(nextIndex)
             }}
-            style={{ x }}
+            style={{ x: translateX }}
           >
             {items.map((item) => (
               <div key={item.id} className='relative shrink-0 w-full h-[500px]'>
@@ -162,13 +184,13 @@ export default function ThumbnailCarousel({ images }: ThumbnailCarouselProps) {
             ))}
           </motion.div>
 
-          {/* Previous Button */}
+          {/* 上一张按钮 */}
           <motion.button
-            disabled={index === 0}
-            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            disabled={currentIndex === 0}
+            onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
             className={`absolute left-4 text-black top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-transform z-10
               ${
-                index === 0
+                currentIndex === 0
                   ? 'opacity-40 cursor-not-allowed'
                   : 'bg-white/80 hover:scale-110 hover:opacity-100 opacity-70'
               }`}
@@ -188,13 +210,13 @@ export default function ThumbnailCarousel({ images }: ThumbnailCarouselProps) {
             </svg>
           </motion.button>
 
-          {/* Next Button */}
+          {/* 下一张按钮 */}
           <motion.button
-            disabled={index === items.length - 1}
-            onClick={() => setIndex((i) => Math.min(items.length - 1, i + 1))}
+            disabled={currentIndex === items.length - 1}
+            onClick={() => setCurrentIndex((i) => Math.min(items.length - 1, i + 1))}
             className={`absolute text-black right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-transform z-10
               ${
-                index === items.length - 1
+                currentIndex === items.length - 1
                   ? 'opacity-40 cursor-not-allowed'
                   : 'bg-white/80 hover:scale-110 hover:opacity-100 opacity-70'
               }`}
@@ -214,13 +236,13 @@ export default function ThumbnailCarousel({ images }: ThumbnailCarouselProps) {
             </svg>
           </motion.button>
 
-          {/* Image Counter */}
+          {/* 图片计数器 */}
           <div className='absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md text-white px-3 py-1 rounded-full text-sm border border-white/10'>
-            {index + 1} / {items.length}
+            {currentIndex + 1} / {items.length}
           </div>
         </div>
 
-        <Thumbnails index={index} setIndex={setIndex} items={items} />
+        <Thumbnails currentIndex={currentIndex} onIndexChange={setCurrentIndex} items={items} />
       </div>
     </div>
   )

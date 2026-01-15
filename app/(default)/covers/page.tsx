@@ -1,4 +1,4 @@
-import { DestinationCard } from '~/components/ui/cover-card'
+import { CoverCard } from '~/components/ui/cover-card'
 import { fetchAlbumsShow } from '~/lib/db/query/albums'
 import { fetchClientImagesCountByAlbum } from '~/lib/db/query/images'
 import { Button } from '~/components/ui/button'
@@ -44,7 +44,7 @@ export default async function CoversPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 max-w-6xl mx-auto">
             {albumsWithCounts.map((album) => (
               <div key={album.id} className="w-full aspect-[4/3]">
-                <DestinationCard
+                <CoverCard
                   imageUrl={album.cover!}
                   location={album.name}
                   stats={`${album.count} PHOTOS`}

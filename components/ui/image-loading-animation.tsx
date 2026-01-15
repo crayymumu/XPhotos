@@ -42,7 +42,7 @@ export interface ImageLoadingAnimationProps {
 export const ImageLoadingAnimation: FC<ImageLoadingAnimationProps> = ({
   visible = true,
   circleColor = 'rgb(128, 128, 128)',
-  shadowColor, // 保留参数以保持向后兼容，但不再使用
+  shadowColor: _shadowColor,
   className = '',
   size = 'medium',
 }) => {

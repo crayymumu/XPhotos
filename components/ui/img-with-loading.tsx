@@ -6,7 +6,7 @@
 'use client'
 
 import { useState, useEffect, forwardRef } from 'react'
-import type { SyntheticEvent } from 'react'
+import type { SyntheticEvent, ImgHTMLAttributes } from 'react'
 import { ImageLoadingAnimation } from './image-loading-animation'
 import { cn } from '~/lib/utils'
 

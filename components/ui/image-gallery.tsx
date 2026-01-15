@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useRef, useState, useMemo, useCallback } from 'react'
 import { cn } from '~/lib/utils'
 import { useInView } from 'framer-motion'
 import { AspectRatio } from '~/components/ui/aspect-ratio'
@@ -13,17 +13,20 @@ interface ImageGalleryProps {
   images: ImageType[]
 }
 
+/**
+ * 图片画廊组件 - 瀑布流布局
+ */
 export function ImageGallery({ images }: ImageGalleryProps) {
   const isMobile = useIsMobile()
 
-  // 瀑布流列数：移动端 2 列，桌面端 3 列
-  const columns = React.useMemo(() => {
+  // 瀑布流分列：移动端 2 列，桌面端 3 列
+  const columns = useMemo(() => {
     const columnCount = isMobile ? 2 : 3
-    const newColumns: ImageType[][] = Array.from({ length: columnCount }, () => [])
-    images.forEach((image, index) => {
-      newColumns[index % columnCount].push(image)
+    const result: ImageType[][] = Array.from({ length: columnCount }, () => [])
+    images.forEach((image, idx) => {
+      result[idx % columnCount].push(image)
     })
-    return newColumns
+    return result
   }, [images, isMobile])
 
   return (
@@ -52,27 +55,35 @@ export function ImageGallery({ images }: ImageGalleryProps) {
 
 interface AnimatedImageProps {
   image: ImageType
-  className?: string
   ratio: number
 }
 
+/**
+ * 带动画效果的图片项 - 支持懒加载和悬停效果
+ */
 function AnimatedImage({ image, ratio }: AnimatedImageProps) {
-  const ref = React.useRef<HTMLDivElement>(null)
-  const isInView = useInView(ref, { once: true })
-  const [isLoading, setIsLoading] = React.useState(true)
+  // === Refs ===
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // === State ===
+  const [isLoading, setIsLoading] = useState(true)
+
+  // === Hooks ===
+  const isInView = useInView(containerRef, { once: true })
   const router = useRouter()
 
+  // === Callbacks ===
+  const handleClick = useCallback(() => {
+    router.push(`/preview/${image.id}`)
+  }, [router, image.id])
+
+  const handleImageLoad = useCallback(() => {
+    setIsLoading(false)
+  }, [])
+
   return (
-    <div
-      ref={ref}
-      className="group relative cursor-pointer"
-      onClick={() => router.push(`/preview/${image.id}`)}
-    >
-      <AspectRatio
-        ratio={ratio}
-        className="bg-muted relative size-full rounded-xl overflow-hidden"
-      >
-        {/* 性能优化：使用优化的图片组件，支持 WebP/AVIF 格式、自动优化 */}
+    <div ref={containerRef} className="group relative cursor-pointer" onClick={handleClick}>
+      <AspectRatio ratio={ratio} className="bg-muted relative size-full rounded-xl overflow-hidden">
         <OptimizedImage
           src={image.preview_url || image.url || ''}
           alt={image.detail || 'Image'}
@@ -84,14 +95,12 @@ function AnimatedImage({ image, ratio }: AnimatedImageProps) {
             !isInView && 'opacity-0'
           )}
           containerClassName="size-full"
-          priority={false} // 懒加载
+          priority={false}
           sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
           quality={85}
-          // 如果没有 blurDataURL，组件会自动使用 placeholder='empty'
-          onLoad={() => setIsLoading(false)}
-          onClick={() => router.push(`/preview/${image.id}`)}
+          onLoad={handleImageLoad}
+          onClick={handleClick}
         />
-        {/* Hover Title with bottom gradient (no rounded box) */}
         {image.title && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 top-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-black/50 via-black/25 to-transparent flex items-end">
             <div className="w-full px-3 pb-3 text-white text-sm font-semibold leading-relaxed tracking-wide drop-shadow-sm line-clamp-2">
