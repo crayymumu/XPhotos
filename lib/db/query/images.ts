@@ -863,6 +863,40 @@ export async function fetchImagesAnalysis():
   }
 }
 
+export async function fetchAdjacentImageIds(
+  imageId: string,
+  albumValue: string
+): Promise<{ prevId: string | null; nextId: string | null }> {
+  if (!albumValue) {
+    return { prevId: null, nextId: null }
+  }
+
+  const result = await db.$queryRaw<Array<{ id: string; sort: number }>>`
+    SELECT image.id, image.sort
+    FROM "public"."images" AS image
+    INNER JOIN "public"."images_albums_relation" AS relation
+      ON image.id = relation."imageId"
+    INNER JOIN "public"."albums" AS albums
+      ON relation.album_value = albums.album_value
+    WHERE image.del = 0
+      AND image.show = 0
+      AND albums.del = 0
+      AND albums.show = 0
+      AND albums.album_value = ${albumValue}
+    ORDER BY image.sort ASC, image.created_at DESC, image.updated_at DESC
+  `
+
+  const currentIndex = result.findIndex(img => img.id === imageId)
+  if (currentIndex === -1) {
+    return { prevId: null, nextId: null }
+  }
+
+  return {
+    prevId: currentIndex > 0 ? result[currentIndex - 1].id : null,
+    nextId: currentIndex < result.length - 1 ? result[currentIndex + 1].id : null,
+  }
+}
+
 /**
  * 根据图片 ID 获取图片详情
  * @param id 图片 ID
@@ -870,23 +904,27 @@ export async function fetchImagesAnalysis():
  */
 export async function fetchImageByIdAndAuth(id: string): Promise<ImageType> {
   const data: ImageType[] = await db.$queryRaw`
-    SELECT
+    WITH ranked_images AS (
+      SELECT
         "images".*,
-        "albums".license AS album_license,
-        "albums".album_value AS album_value
-    FROM
-        "images"
-    LEFT JOIN "images_albums_relation"
+        "images_albums_relation".album_value AS rel_album_value,
+        ROW_NUMBER() OVER (PARTITION BY "images_albums_relation".album_value ORDER BY "images".sort, "images".id) AS album_sort
+      FROM "images"
+      LEFT JOIN "images_albums_relation"
         ON "images"."id" = "images_albums_relation"."imageId"
+      WHERE "images".del = 0 AND "images".show = 0
+    )
+    SELECT
+        ranked_images.*,
+        ranked_images.album_sort AS sort,
+        "albums".license AS album_license,
+        "albums".album_value AS album_value,
+        "albums".name AS album_name
+    FROM ranked_images
     LEFT JOIN "albums"
-        ON "images_albums_relation".album_value = "albums".album_value
+        ON ranked_images.rel_album_value = "albums".album_value
         AND "albums".del = 0
-    WHERE
-        "images".del = 0
-    AND
-        "images".show = 0
-    AND
-        "images".id = ${id}
+    WHERE ranked_images.id = ${id}
     LIMIT 1
   `
   return data[0]

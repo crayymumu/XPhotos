@@ -79,6 +79,8 @@ export interface PreviewImageHandleProps {
   args: string
   id: string
   configHandle: () => unknown
+  prevId?: string | null
+  nextId?: string | null
 }
 
 export interface ProgressiveImageProps {

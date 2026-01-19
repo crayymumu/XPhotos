@@ -158,7 +158,7 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
             {/* 标题与关闭按钮 */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', paddingLeft: '16px', paddingRight: '8px', marginBottom: '12px' }}>
               <Title level={4} style={{ margin: 0, fontWeight: 500, flex: 1, fontSize: '16px', color: '#f0f0f0' }}>
-                {props.data?.title || '未命名'}
+                {props.data?.title || (props.data?.album_name ? `${props.data.album_name} ${props.data.sort}` : '未命名')}
               </Title>
               <button
                 onClick={handleClose}
@@ -370,6 +370,42 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
                     </Tag>
                   ))}
                 </Space>
+              </div>
+            )}
+
+            {/* 上一张/下一张按钮 */}
+            {(props.prevId || props.nextId) && (
+              <div style={{ marginTop: '24px', paddingLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Tooltip title="上一张">
+                  <div
+                    onClick={() => props.prevId && router.replace(`/preview/${props.prevId}`)}
+                    className={cn(
+                      'flex items-center justify-center w-9 h-9 rounded-md transition-all',
+                      props.prevId 
+                        ? 'bg-white/10 hover:bg-white/20 cursor-pointer' 
+                        : 'bg-white/5 cursor-not-allowed opacity-40'
+                    )}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300">
+                      <path d="m15 18-6-6 6-6" />
+                    </svg>
+                  </div>
+                </Tooltip>
+                <Tooltip title="下一张">
+                  <div
+                    onClick={() => props.nextId && router.replace(`/preview/${props.nextId}`)}
+                    className={cn(
+                      'flex items-center justify-center w-9 h-9 rounded-md transition-all',
+                      props.nextId 
+                        ? 'bg-white/10 hover:bg-white/20 cursor-pointer' 
+                        : 'bg-white/5 cursor-not-allowed opacity-40'
+                    )}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300">
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                  </div>
+                </Tooltip>
               </div>
             )}
           </div>

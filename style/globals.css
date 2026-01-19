@@ -105,46 +105,33 @@
 :root,
 .dark {
   --radius: 0.625rem;
-  /* Midnight Blue / Charcoal Gray Background */
-  --background: oklch(0.15 0.02 260); 
+  --background: oklch(0.18 0.02 230);
   --foreground: oklch(0.985 0 0);
-  
-  /* Card background slightly lighter */
-  --card: oklch(0.2 0.03 260);
+  --card: oklch(0.22 0.025 230);
   --card-foreground: oklch(0.985 0 0);
-  
-  --popover: oklch(0.2 0.03 260);
+  --popover: oklch(0.22 0.025 230);
   --popover-foreground: oklch(0.985 0 0);
-  
-  /* Cyber Purple Primary */
-  --primary: oklch(0.6 0.25 300);
+  --primary: oklch(0.42 0.1 230);
   --primary-foreground: oklch(0.985 0 0);
-  
-  /* Sunset Orange Secondary */
-  --secondary: oklch(0.65 0.2 40);
-  --secondary-foreground: oklch(0.985 0 0);
-  
-  --muted: oklch(0.25 0.02 260);
-  --muted-foreground: oklch(0.7 0.02 260);
-  
-  --accent: oklch(0.25 0.02 260);
-  --accent-foreground: oklch(0.985 0 0);
-  
-  --border: oklch(0.3 0.02 260);
-  --input: oklch(0.3 0.02 260);
-  --ring: oklch(0.6 0.25 300);
-  
-  --chart-1: oklch(0.6 0.25 300); /* Cyber Purple */
-  --chart-2: oklch(0.65 0.2 40);  /* Sunset Orange */
-  
-  --sidebar: oklch(0.15 0.02 260);
+  --secondary: oklch(0.78 0.08 175);
+  --secondary-foreground: oklch(0.2 0.02 230);
+  --muted: oklch(0.28 0.02 230);
+  --muted-foreground: oklch(0.7 0.02 230);
+  --accent: oklch(0.75 0.08 70);
+  --accent-foreground: oklch(0.2 0.02 230);
+  --border: oklch(0.32 0.025 230);
+  --input: oklch(0.32 0.025 230);
+  --ring: oklch(0.42 0.1 230);
+  --chart-1: oklch(0.42 0.1 230);
+  --chart-2: oklch(0.78 0.08 175);
+  --sidebar: oklch(0.18 0.02 230);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.6 0.25 300);
+  --sidebar-primary: oklch(0.42 0.1 230);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.25 0.02 260);
+  --sidebar-accent: oklch(0.28 0.02 230);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.3 0.02 260);
-  --sidebar-ring: oklch(0.6 0.25 300);
+  --sidebar-border: oklch(0.32 0.025 230);
+  --sidebar-ring: oklch(0.42 0.1 230);
 }
 
 :root {
@@ -172,12 +159,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, #9d4edd, #ff9505);
+  background: linear-gradient(to bottom, #2B4B6F, #8ECFC9);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, #7b2cbf, #e85d04);
+  background: linear-gradient(to bottom, #1E3A5F, #6DBFB5);
 }
 
 @layer base {

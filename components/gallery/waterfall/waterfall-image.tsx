@@ -31,7 +31,7 @@ export default function WaterfallImage({ photo, index }: { photo: ImageType, ind
         transform: isHovered ? 'scale(1.05)' : 'scale(1)',
         boxShadow: isHovered ? '0 0 20px rgba(157, 78, 221, 0.5)' : 'none',
         border: '1px solid transparent',
-        borderImage: isHovered ? 'linear-gradient(to right, #9d4edd, #ff9505) 1' : 'none',
+        borderImage: isHovered ? 'linear-gradient(to right, #2B4B6F, #8ECFC9) 1' : 'none',
       }}
       className="group"
       onMouseEnter={() => setIsHovered(true)}
@@ -43,7 +43,7 @@ export default function WaterfallImage({ photo, index }: { photo: ImageType, ind
         className="absolute inset-0 rounded-[12px] pointer-events-none"
         style={{
           padding: '1px',
-          background: isHovered ? 'linear-gradient(to right, #9d4edd, #ff9505)' : 'transparent',
+          background: isHovered ? 'linear-gradient(to right, #2B4B6F, #8ECFC9)' : 'transparent',
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',
           maskComposite: 'exclude',

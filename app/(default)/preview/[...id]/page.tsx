@@ -1,4 +1,4 @@
-import { fetchImageByIdAndAuth } from '~/lib/db/query/images'
+import { fetchImageByIdAndAuth, fetchAdjacentImageIds } from '~/lib/db/query/images'
 import type { PreviewImageHandleProps } from '~/types/props'
 import PreviewImage from '~/components/album/preview-image'
 import { fetchConfigsByKeys } from '~/lib/db/query/configs'
@@ -19,12 +19,15 @@ export default async function PreView({params}: { params: any }) {
   }
 
   const imageData = await getData(id)
+  const { prevId, nextId } = await fetchAdjacentImageIds(id, imageData?.album_value || '')
 
   const props: PreviewImageHandleProps = {
     data: imageData,
     args: 'getImages-client-preview',
     id: id,
     configHandle: getConfig,
+    prevId,
+    nextId,
   }
 
   return (

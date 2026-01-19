@@ -27,9 +27,9 @@ export default function HeroSection({ images = [] }: HeroSectionProps) {
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-background"></div>
         <div className="absolute top-0 left-0 w-full h-full bg-[url('/noise.png')] opacity-20 mix-blend-overlay"></div>
         {/* Aurora / Light Spots */}
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#9d4edd] blur-[120px] opacity-20 animate-blob"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#ff9505] blur-[120px] opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-[40%] left-[40%] w-[30%] h-[30%] rounded-full bg-[#7b2cbf] blur-[100px] opacity-15 animate-blob animation-delay-4000"></div>
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[#2B4B6F] blur-[120px] opacity-20 animate-blob"></div>
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#8ECFC9] blur-[120px] opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-[40%] left-[40%] w-[30%] h-[30%] rounded-full bg-[#1E3A5F] blur-[100px] opacity-15 animate-blob animation-delay-4000"></div>
       </div>
 
       {/* Content */}
@@ -53,7 +53,7 @@ export default function HeroSection({ images = [] }: HeroSectionProps) {
             transition={{ duration: 0.8, ease: 'easeOut' }}
             className="text-[32px] md:text-[48px] font-bold tracking-tight mb-[20px]"
           >
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#9d4edd] to-[#ff9505]">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#8ECFC9] to-[#D4B896]">
               摄影是一件很伤感的事情
             </span>
           </motion.h1>
@@ -86,7 +86,7 @@ export default function HeroSection({ images = [] }: HeroSectionProps) {
               shadow-[0_18px_45px_rgba(0,0,0,0.35)]
               backdrop-blur-[8px]
               transition-all duration-300
-              hover:bg-gradient-to-r hover:from-[#9d4edd]/70 hover:to-[#ff9505]/70
+              hover:bg-gradient-to-r hover:from-[#2B4B6F]/70 hover:to-[#8ECFC9]/70
               hover:text-white
               hover:border-white/40
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60

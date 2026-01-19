@@ -52,9 +52,9 @@ export default function UnifiedNav({
 
   // ========== Derived Data ==========
   const navLinks = [
-    { name: '曙光', href: '/' },
-    { name: '花似锦', href: '/covers' },
-    { name: '不逢春', href: '/albums' },
+    { name: '锚点', href: '/' },
+    { name: '不逢春', href: '/covers' },
+    { name: '流', href: '/albums' },
     // { name: '关于我', href: '/about' },
     // { name: session ? t('Link.dashboard') : t('Login.signIn'), href: session ? '/admin' : '/login' },
   ]
@@ -85,13 +85,13 @@ export default function UnifiedNav({
             isNavScrolled && 'border-b-[1px] border-white/10 shadow-lg'
           )}
           style={{
-            borderBottom: isNavScrolled ? 'linear-gradient(to right, #9d4edd, #ff9505) 1' : 'none'
+            borderBottom: isNavScrolled ? 'linear-gradient(to right, #2B4B6F, #8ECFC9) 1' : 'none'
           }}
         >
           <div className="max-w-[1400px] mx-auto px-4 h-full flex items-center justify-between">
             {/* Logo */}
             <Link href="/" className="flex-shrink-0 group">
-              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#9d4edd] to-[#ff9505] tracking-tight group-hover:opacity-80 transition-opacity">
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#2B4B6F] to-[#8ECFC9] tracking-tight group-hover:opacity-80 transition-opacity">
                 {siteTitle}
               </span>
             </Link>
@@ -108,8 +108,8 @@ export default function UnifiedNav({
                     className={cn(
                       'text-[16px] transition-all duration-300 block',
                       isActive(link.href) 
-                        ? 'bg-clip-text text-transparent bg-gradient-to-r from-[#9d4edd] to-[#ff9505] font-medium'
-                        : 'text-[#e0e0e0] group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-[#9d4edd] group-hover:to-[#ff9505] group-hover:translate-x-[5px]'
+                        ? 'bg-clip-text text-transparent bg-gradient-to-r from-[#2B4B6F] to-[#8ECFC9] font-medium'
+                        : 'text-[#e0e0e0] group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-[#2B4B6F] group-hover:to-[#8ECFC9] group-hover:translate-x-[5px]'
                     )}
                   >
                     {link.name}
@@ -117,7 +117,7 @@ export default function UnifiedNav({
                   {isActive(link.href) && (
                     <motion.div
                       layoutId="underline"
-                      className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-[#9d4edd] to-[#ff9505]"
+                      className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-[#2B4B6F] to-[#8ECFC9]"
                     />
                   )}
                 </Link>
