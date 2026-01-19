@@ -53,10 +53,10 @@ export default function UnifiedNav({
   // ========== Derived Data ==========
   const navLinks = [
     { name: '曙光', href: '/' },
-    { name: '随片札记', href: '/covers' },
-    { name: '行者集', href: '/albums' },
+    { name: '花似锦', href: '/covers' },
+    { name: '不逢春', href: '/albums' },
     // { name: '关于我', href: '/about' },
-    { name: session ? t('Link.dashboard') : t('Login.signIn'), href: session ? '/admin' : '/login' },
+    // { name: session ? t('Link.dashboard') : t('Login.signIn'), href: session ? '/admin' : '/login' },
   ]
 
   // 过滤出需要在菜单中展示的相册

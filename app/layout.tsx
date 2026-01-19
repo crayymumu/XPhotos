@@ -27,7 +27,7 @@ type ConfigItem = {
 }
 
 const DEFAULT_TITLE = 'XPhotos'
-const DEFAULT_FAVICON = './favicon.ico'
+const DEFAULT_FAVICON = '/favicon.svg'
 const DEFAULT_UMAMI_HOST = 'https://cloud.umami.is/script.js'
 
 function getConfigValue(data: ConfigItem[], key: string, defaultValue: string = ''): string {

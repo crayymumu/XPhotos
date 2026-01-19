@@ -10,6 +10,9 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    middlewareClientMaxBodySize: '100mb',
+  },
   output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,

@@ -2,8 +2,8 @@ import { UserFrom } from '~/components/login/user-from'
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '登录 - PicImpact',
-  description: '登录 PicImpact 后台管理系统',
+  title: '登录 - Anthor',
+  description: '登录 Anthor 后台管理系统',
 }
 
 export default function LoginPage() {

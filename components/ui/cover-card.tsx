@@ -99,7 +99,7 @@ function useImageDominantColor(imageUrl: string, fallbackColor: string): string 
  * 封面卡片组件 - 自动从图片提取主题色
  */
 const CoverCard = React.forwardRef<HTMLDivElement, CoverCardProps>(
-  ({ className, imageUrl, location, flag, stats, href, themeColor: fallbackThemeColor, ...props }, ref) => {
+  ({ className, imageUrl, location, flag, stats, href, themeColor: fallbackThemeColor, exploreText, ...props }, ref) => {
     const themeColor = useImageDominantColor(imageUrl, fallbackThemeColor)
 
     return (
@@ -144,7 +144,7 @@ const CoverCard = React.forwardRef<HTMLDivElement, CoverCardProps>(
               {location}
             </h3>
             {flag && <span className="text-2xl mt-2 drop-shadow-md">{flag}</span>}
-            <p className="text-sm text-white/90 mt-3 font-medium tracking-widest uppercase opacity-0 transform translate-y-4 transition-all duration-500 group-hover:opacity-100 group-hover:translate-y-0">
+            <p className="text-sm text-white/90 mt-3 font-medium tracking-widest uppercase opacity-0 transform translate-y-4 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:translate-y-0">
               {stats}
             </p>
 

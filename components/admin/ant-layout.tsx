@@ -12,14 +12,22 @@ const { useBreakpoint } = Grid
 export default function AdminAntLayout({ children }: { children: React.ReactNode }) {
   const screens = useBreakpoint()
   const { token } = theme.useToken()
-  // 为避免 SSR 与客户端断点不一致导致的水合差异，初始固定为未折叠
+  const [mounted, setMounted] = React.useState(false)
   const [collapsed, setCollapsed] = React.useState<boolean>(false)
-  const isMobile = !screens.md
 
   React.useEffect(() => {
-    // 挂载后根据实际断点更新，避免首屏 SSR 与客户端不一致
-    setCollapsed(!screens.lg)
-  }, [screens.lg])
+    setMounted(true)
+  }, [])
+
+  React.useEffect(() => {
+    if (mounted) {
+      setCollapsed(!screens.lg)
+    }
+  }, [screens.lg, mounted])
+
+  const isMobile = mounted ? !screens.md : false
+
+  const siderWidth = collapsed ? (isMobile ? 0 : 80) : 260
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -33,12 +41,18 @@ export default function AdminAntLayout({ children }: { children: React.ReactNode
         style={{
           background: token.colorBgContainer,
           boxShadow: '2px 0 8px rgba(0,0,0,0.05)',
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          zIndex: 100,
+          overflow: 'auto',
         }}
       >
         <AdminAntSidebar collapsed={collapsed} />
       </Sider>
       
-      <Layout>
+      <Layout style={{ marginLeft: siderWidth, transition: 'margin-left 0.2s' }}>
         <Header
           style={{
             padding: isMobile ? `0 ${token.padding}px` : `0 ${token.paddingLG}px`,

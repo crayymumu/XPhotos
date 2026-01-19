@@ -99,7 +99,7 @@ export const UserFrom = () => {
         </div>
         
         <h2 className="text-2xl font-semibold mb-3 text-center text-[#2A4365]">
-          XPhotos
+          Anthor
         </h2>
         <p className="text-gray-500 text-sm mb-10 text-center">
           专业风光摄影作品集管理系统

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { Menu, Avatar, Dropdown, Typography, Space, Divider, theme } from 'antd'
 import { useTranslations } from 'next-intl'
 import { usePathname, useRouter } from 'next/navigation'
@@ -31,11 +31,8 @@ export default function AdminAntSidebar({ collapsed }: AdminAntSidebarProps) {
   const router = useRouter()
   const pathname = usePathname() || '/admin'
   const { token } = theme.useToken()
-  const [isHydrated, setIsHydrated] = useState(false)
-
-  useEffect(() => {
-    setIsHydrated(true)
-  }, [])
+  const { data: session } = authClient.useSession()
+  const user = session?.user
 
   const mainMenuItems = [
     {
@@ -152,19 +149,17 @@ export default function AdminAntSidebar({ collapsed }: AdminAntSidebarProps) {
           transition: 'all 0.3s',
         }}
       >
-        <Avatar
-          shape="square"
-          size={collapsed ? 32 : 40}
+        <img
+          src="/favicon.svg"
+          alt="Logo"
           style={{
-            background: token.colorPrimary,
-            fontSize: collapsed ? 14 : 16,
+            width: collapsed ? 32 : 40,
+            height: collapsed ? 32 : 40,
           }}
-        >
-          XP
-        </Avatar>
+        />
         {!collapsed && (
           <Text strong style={{ fontSize: 16 }}>
-            XPhotos
+            Anthor
           </Text>
         )}
       </div>
@@ -173,24 +168,20 @@ export default function AdminAntSidebar({ collapsed }: AdminAntSidebarProps) {
 
       {/* 主菜单 */}
       <div style={{ flex: 1, overflow: 'auto' }}>
-        {isHydrated && (
-          <>
-            <Menu
-              mode="inline"
-              selectedKeys={[pathname]}
-              onClick={onClick}
-              items={mainMenuItems}
-              style={{ border: 'none' }}
-            />
-            <Menu
-              mode="inline"
-              selectedKeys={[pathname]}
-              onClick={onClick}
-              items={settingsMenuItems}
-              style={{ border: 'none', marginTop: token.marginMD }}
-            />
-          </>
-        )}
+        <Menu
+          mode="inline"
+          selectedKeys={[pathname]}
+          onClick={onClick}
+          items={mainMenuItems}
+          style={{ border: 'none' }}
+        />
+        <Menu
+          mode="inline"
+          selectedKeys={[pathname]}
+          onClick={onClick}
+          items={settingsMenuItems}
+          style={{ border: 'none', marginTop: token.marginMD }}
+        />
       </div>
 
       <Divider style={{ margin: 0 }} />
@@ -219,16 +210,16 @@ export default function AdminAntSidebar({ collapsed }: AdminAntSidebarProps) {
               e.currentTarget.style.background = 'transparent'
             }}
           >
-            <Avatar size={32} style={{ background: token.colorPrimary }}>
-              A
+            <Avatar size={32} src={user?.image} style={{ background: token.colorPrimary }}>
+              {user?.name?.[0]?.toUpperCase() || 'U'}
             </Avatar>
             {!collapsed && (
               <Space orientation="vertical" size={0} style={{ marginLeft: token.marginXS }}>
                 <Text strong style={{ fontSize: 13 }}>
-                  Admin
+                  {user?.name || 'User'}
                 </Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  admin@xphotos.com
+                  {user?.email || ''}
                 </Text>
               </Space>
             )}

@@ -14,16 +14,14 @@ interface HeroSectionProps {
 export default function HeroSection({ images = [] }: HeroSectionProps) {
   const router = useRouter()
   useEffect(() => {
-    // 需求修改：预取「城隅寻迹」路由，减少跳转闪屏
     router.prefetch('/covers')
   }, [router])
-  // 需求修改：Start 按钮改为路由跳转到「城隅寻迹」页面
   const handleStartClick = () => {
     router.push('/covers', { scroll: true })
   }
 
   return (
-    <div className="relative w-full h-[calc(100vh-1rem)] sm:h-[calc(80vh-1.5rem)] md:h-[calc(100vh-2rem)] flex flex-col items-center pt-[25vh] overflow-hidden bg-background">
+    <div className="relative w-full h-dvh md:h-[calc(100vh-2rem)] flex flex-col items-center justify-center overflow-hidden bg-background">
       {/* Dynamic Background */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-background"></div>
