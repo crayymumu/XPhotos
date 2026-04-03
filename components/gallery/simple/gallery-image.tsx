@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { LinkIcon } from '~/components/icons/link.tsx'
 import { RefreshCWIcon } from '~/components/icons/refresh-cw.tsx'
 import { cn } from '~/lib/utils'
+import { toPublicImageUrl } from '~/lib/utils/url'
 import { DownloadIcon } from '~/components/icons/download.tsx'
 import useSWR from 'swr'
 import { ClockIcon } from '~/components/icons/clock.tsx'
@@ -49,7 +50,7 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
 
       toast.warning(msg, { duration: 1500 })
       
-      const storageType = photo?.url?.includes('s3') ? 's3' : 'r2'
+      const storageType = 'oss'
       let response = await fetch(`/api/public/download/${photo.id}?storage=${storageType}`)
       const contentType = response.headers.get('content-type')
       
@@ -90,8 +91,8 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1 }}
-            src={customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url}
-            overrideSrc={customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url}
+            src={toPublicImageUrl(customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url)}
+            overrideSrc={toPublicImageUrl(customIndexOriginEnable ? photo.url || photo.preview_url : photo.preview_url || photo.url)}
             alt={photo.title}
             width={photo.width}
             height={photo.height}
@@ -164,7 +165,7 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
             size={16}
             onClick={async () => {
               try {
-                const url = photo?.url
+                const url = toPublicImageUrl(photo?.url)
                 if (!url) {
                   toast.error('图片链接不存在！', {duration: 500})
                   return
@@ -333,7 +334,7 @@ export default function GalleryImage({ photo, configData }: { photo: ImageType, 
               size={18}
               onClick={async () => {
                 try {
-                  const url = photo?.url
+                  const url = toPublicImageUrl(photo?.url)
                   if (!url) {
                     toast.error('图片链接不存在！', {duration: 500})
                     return

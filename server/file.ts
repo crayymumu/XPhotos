@@ -122,7 +122,7 @@ app.post('/upload', async (c) => {
       ContentType: (file as any).type || undefined,
     }))
 
-    return Response.json({ code: 200, data: { url: buildS3PublicUrl(cfg, key), imageId, fileName: newFileName, key } })
+    return Response.json({ code: 200, data: { url: key, imageId, fileName: newFileName, key } })
   }
 
   // OSS 服务端上传
@@ -143,7 +143,7 @@ app.post('/upload', async (c) => {
     const client = createOSSClient(cfg)
     await ossPut(client, key, Buffer.from(await file.arrayBuffer()), (file as any).type || undefined)
 
-    return Response.json({ code: 200, data: { url: buildOSSPublicUrl(cfg, key), imageId, fileName: newFileName, key } })
+    return Response.json({ code: 200, data: { url: key, imageId, fileName: newFileName, key } })
   }
 
   throw new HTTPException(400, { message: 'Unsupported storage type' })

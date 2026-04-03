@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import Image from 'next/image'
 import type { ImageType } from '~/types'
+import { toPublicImageUrl } from '~/lib/utils/url'
 
 interface ImageAutoSliderProps {
   images: ImageType[]
@@ -34,7 +35,7 @@ export const ImageAutoSlider = ({ images }: ImageAutoSliderProps) => {
       return
     }
 
-    const firstImageUrl = images[0].preview_url || images[0].url
+    const firstImageUrl = toPublicImageUrl(images[0].preview_url || images[0].url)
     if (!firstImageUrl) {
       setIsFirstImageLoaded(true)
       return
@@ -121,7 +122,7 @@ export const ImageAutoSlider = ({ images }: ImageAutoSliderProps) => {
                   style={{ width: 'clamp(128px, 20vw, 256px)', aspectRatio: '4/3' }}
                 >
                   <Image
-                    src={image.preview_url || image.url || ''}
+                    src={toPublicImageUrl(image.preview_url || image.url)}
                     alt={image.title || `Gallery image ${idx + 1}`}
                     fill
                     sizes="(max-width: 768px) 128px, (max-width: 1024px) 192px, 256px"

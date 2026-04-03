@@ -62,6 +62,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '~/components/ui/popover'
+import { toPublicImageUrl } from '~/lib/utils/url'
 
 export default function ListProps(props : Readonly<ImageServerHandleProps>) {
   const [pageNum, setPageNum] = useState(1)
@@ -613,7 +614,7 @@ export default function ListProps(props : Readonly<ImageServerHandleProps>) {
                   {/* 图片区域 */}
                   <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
                     <img
-                      src={image.preview_url || image.url}
+                      src={toPublicImageUrl(image.preview_url || image.url)}
                       alt={image.title || '图片'}
                       className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                       loading="lazy"
@@ -846,7 +847,7 @@ export default function ListProps(props : Readonly<ImageServerHandleProps>) {
                     {/* 左侧缩略图 */}
                     <div className="h-16 w-24 flex-shrink-0 overflow-hidden rounded-md bg-gray-100">
                       <img
-                        src={image.preview_url || image.url}
+                        src={toPublicImageUrl(image.preview_url || image.url)}
                         alt={image.title || '图片'}
                         className="h-full w-full object-cover"
                         loading="lazy"

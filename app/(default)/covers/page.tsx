@@ -5,6 +5,7 @@ import { Button } from '~/components/ui/button'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
+import { toPublicImageUrl } from '~/lib/utils/url'
 
 function getThemeColor(str: string) {
   let hash = 0
@@ -45,7 +46,7 @@ export default async function CoversPage() {
             {albumsWithCounts.map((album) => (
               <div key={album.id} className="w-full aspect-[4/3]">
                 <CoverCard
-                  imageUrl={album.cover!}
+                  imageUrl={toPublicImageUrl(album.cover)}
                   location={album.name}
                   stats={`${album.count} PHOTOS`}
                   href={`${album.album_value}?style=${album.count > 5 ? '2' : '1'}`}

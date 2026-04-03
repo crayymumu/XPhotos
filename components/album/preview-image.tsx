@@ -17,6 +17,7 @@ import { XIcon } from '~/components/icons/x'
 import { CopyIcon } from '~/components/icons/copy'
 import { RefreshCWIcon } from '~/components/icons/refresh-cw'
 import { cn } from '~/lib/utils'
+import { toPublicImageUrl } from '~/lib/utils/url'
 import { useSwrHydrated } from '~/hooks/use-swr-hydrated'
 import 'yet-another-react-lightbox/styles.css'
 import { useState } from 'react'
@@ -71,7 +72,7 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
       toast.warning(msg, { duration: 1500 })
 
       // 获取存储类型
-      const storageType = props.data?.url?.includes('s3') ? 's3' : 'r2'
+      const storageType = 'oss'
 
       // 使用新的下载 API
       let response = await fetch(`/api/public/download/${props.id}?storage=${storageType}`)
@@ -134,8 +135,8 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
           <div className="relative select-none flex items-center justify-center" style={{ width: '100%', minHeight: '300px' }}>
             {props.data.type === 1 ?
               <ProgressiveImage
-                imageUrl={props.data.preview_url || props.data.url}
-                previewUrl={props.data.preview_url || props.data.url}
+                imageUrl={toPublicImageUrl(props.data.preview_url || props.data.url)}
+                previewUrl={toPublicImageUrl(props.data.preview_url || props.data.url)}
                 alt={props.data.title}
                 height={props.data.height}
                 width={props.data.width}
@@ -144,8 +145,8 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
                 onShowLightboxChange={(value) => setLightboxPhoto(value)}
               />
               : <LivePhoto
-                url={props.data.preview_url || props.data.url}
-                videoUrl={props.data.video_url}
+                url={toPublicImageUrl(props.data.preview_url || props.data.url)}
+                videoUrl={toPublicImageUrl(props.data.video_url)}
                 className="max-h-[90vh]"
               />
             }
@@ -269,7 +270,7 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
                   size={18}
                   onClick={async () => {
                     try {
-                      const url = props.data?.url
+                      const url = toPublicImageUrl(props.data?.url)
                       if (!url) {
                         toast.error('图片链接不存在！', { duration: 500 })
                         return
@@ -416,8 +417,8 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
           <div className="relative select-none flex items-center justify-center" style={{ width: '100%', height: '100%', minHeight: '400px' }}>
             {props.data.type === 1 ?
               <ProgressiveImage
-                imageUrl={props.data.preview_url || props.data.url}
-                previewUrl={props.data.preview_url || props.data.url}
+                imageUrl={toPublicImageUrl(props.data.preview_url || props.data.url)}
+                previewUrl={toPublicImageUrl(props.data.preview_url || props.data.url)}
                 alt={props.data.title}
                 height={props.data.height}
                 width={props.data.width}
@@ -426,8 +427,8 @@ export default function PreviewImage(props: Readonly<PreviewImageHandleProps>) {
                 onShowLightboxChange={(value) => setLightboxPhoto(value)}
               />
               : <LivePhoto
-                url={props.data.preview_url || props.data.url}
-                videoUrl={props.data.video_url}
+                url={toPublicImageUrl(props.data.preview_url || props.data.url)}
+                videoUrl={toPublicImageUrl(props.data.video_url)}
                 className="max-h-[90vh]"
               />
             }

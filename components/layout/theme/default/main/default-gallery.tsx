@@ -9,6 +9,7 @@ import { ReloadIcon } from '@radix-ui/react-icons'
 import React, { useEffect, useRef } from 'react'
 import { MasonryPhotoAlbum, RenderImageContext, RenderImageProps } from 'react-photo-album'
 import BlurImage from '~/components/album/blur-image.tsx'
+import { toPublicImageUrl } from '~/lib/utils/url'
 
 function renderNextImage(
   _: RenderImageProps,
@@ -79,7 +80,7 @@ export default function DefaultGallery(props: Readonly<ImageHandleProps>) {
             }}
             photos={
               dataList?.map((item: ImageType) => ({
-                src: item.preview_url || item.url,
+                src: toPublicImageUrl(item.preview_url || item.url),
                 alt: item.detail,
                 ...item
               })) || []

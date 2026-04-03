@@ -11,6 +11,7 @@ import LivePhoto from '~/components/album/live-photo'
 import { MotionImage } from '~/components/album/motion-image'
 import { Badge } from '~/components/ui/badge'
 import { useBlurImageDataUrl } from '~/hooks/use-blurhash'
+import { toPublicImageUrl } from '~/lib/utils/url'
 
 export default function ImageView() {
   const { imageView, imageViewData, setImageView, setImageViewData } = useButtonStore(
@@ -46,8 +47,8 @@ export default function ImageView() {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.5 }}
                 className="max-w-full max-h-[60vh] object-contain"
-                src={imageViewData.preview_url || imageViewData.url}
-                overrideSrc={imageViewData.preview_url || imageViewData.url}
+                src={toPublicImageUrl(imageViewData.preview_url || imageViewData.url)}
+                overrideSrc={toPublicImageUrl(imageViewData.preview_url || imageViewData.url)}
                 alt={imageViewData.detail}
                 width={imageViewData.width}
                 height={imageViewData.height}
@@ -57,7 +58,7 @@ export default function ImageView() {
                 blurDataURL={dataURL}
               />
               :
-              <LivePhoto url={imageViewData.preview_url || imageViewData.url} videoUrl={imageViewData.video_url} />
+              <LivePhoto url={toPublicImageUrl(imageViewData.preview_url || imageViewData.url)} videoUrl={toPublicImageUrl(imageViewData.video_url)} />
             }
           </div>
           

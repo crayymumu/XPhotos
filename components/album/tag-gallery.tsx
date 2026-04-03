@@ -14,6 +14,7 @@ import BlurImage from '~/components/album/blur-image'
 import { SparklesIcon } from '~/components/icons/sparkles'
 import { UndoIcon } from '~/components/icons/undo'
 import { useRouter } from 'next-nprogress-bar'
+import { toPublicImageUrl } from '~/lib/utils/url'
 
 function renderNextImage(
   _: RenderImageProps,
@@ -63,7 +64,7 @@ export default function TagGallery(props : Readonly<ImageHandleProps>) {
             }}
             photos={
               dataList?.map((item: ImageType) => ({
-                src: item.preview_url || item.url,
+                src: toPublicImageUrl(item.preview_url || item.url),
                 alt: item.detail,
                 ...item
               })) || []

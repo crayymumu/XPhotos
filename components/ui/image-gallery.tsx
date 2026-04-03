@@ -8,6 +8,7 @@ import type { ImageType } from '~/types'
 import { useRouter } from 'next-nprogress-bar'
 import { useIsMobile } from '~/hooks/use-mobile'
 import { OptimizedImage } from '~/components/ui/optimized-image'
+import { toPublicImageUrl } from '~/lib/utils/url'
 
 interface ImageGalleryProps {
   images: ImageType[]
@@ -85,7 +86,7 @@ function AnimatedImage({ image, ratio }: AnimatedImageProps) {
     <div ref={containerRef} className="group relative cursor-pointer" onClick={handleClick}>
       <AspectRatio ratio={ratio} className="bg-muted relative size-full rounded-xl overflow-hidden">
         <OptimizedImage
-          src={image.preview_url || image.url || ''}
+          src={toPublicImageUrl(image.preview_url || image.url)}
           alt={image.detail || 'Image'}
           width={image.width || 800}
           height={image.height || 600}

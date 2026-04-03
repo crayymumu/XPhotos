@@ -7,6 +7,7 @@ import { ImageLoadingAnimation } from '~/components/ui/image-loading-animation'
 import { useState } from 'react'
 import type { ImageType } from '~/types'
 import { motion } from 'framer-motion'
+import { toPublicImageUrl } from '~/lib/utils/url'
 
 export default function WaterfallImage({ photo, index }: { photo: ImageType, index?: number }) {
   const router = useRouter()
@@ -60,7 +61,7 @@ export default function WaterfallImage({ photo, index }: { photo: ImageType, ind
         )}
         {/* 性能优化：使用优化的图片组件，支持 WebP/AVIF 格式、自动优化 */}
         <OptimizedImage
-          src={photo.preview_url || photo.url || ''}
+          src={toPublicImageUrl(photo.preview_url || photo.url)}
           alt={photo.detail || 'image'}
           width={photo.width || 800}
           height={photo.height || 600}

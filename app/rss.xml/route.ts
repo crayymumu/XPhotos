@@ -2,6 +2,7 @@ import 'server-only'
 import RSS from 'rss'
 import { fetchConfigsByKeys } from '~/lib/db/query/configs'
 import { getRSSImages } from '~/lib/db/query/images'
+import { toPublicImageUrl } from '~/lib/utils/url'
 
 export async function GET(request: Request) {
   const data = await fetchConfigsByKeys([
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
         title: item.title || '图片',
         description: `
           <div>
-            <img src="${item.preview_url || item.url}" alt="${item.detail}" />
+            <img src="${toPublicImageUrl(item.preview_url || item.url)}" alt="${item.detail}" />
             <p>${item.detail}</p>
             <a href="${url.origin + (item.album_value === '/' ? '/preview/' : item.album_value + '/preview/') + item.id}" target="_blank">查看图片信息</a>
           </div>
@@ -56,16 +57,16 @@ export async function GET(request: Request) {
         guid: item.id,
         date: item.created_at,
         enclosure: {
-          url: item.preview_url || item.url,
+          url: toPublicImageUrl(item.preview_url || item.url),
           type: 'image/jpeg',
         },
         media: {
           content: {
-            url: item.preview_url || item.url,
+            url: toPublicImageUrl(item.preview_url || item.url),
             type: 'image/jpeg',
           },
           thumbnail: {
-            url: item.preview_url || item.url,
+            url: toPublicImageUrl(item.preview_url || item.url),
           },
         },
       })

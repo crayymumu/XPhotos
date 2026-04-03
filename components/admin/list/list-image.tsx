@@ -3,6 +3,7 @@
 import type { ImageType } from '~/types'
 import { useBlurImageDataUrl } from '~/hooks/use-blurhash'
 import { MotionImage } from '~/components/album/motion-image'
+import { toPublicImageUrl } from '~/lib/utils/url'
 export default function ListImage({ image }: { image: ImageType }) {
 
   const dataURL = useBlurImageDataUrl(image.blurhash)
@@ -13,8 +14,8 @@ export default function ListImage({ image }: { image: ImageType }) {
       animate={{ opacity: 1 }}
       transition={{ duration: 1 }}
       className="duration-700 ease-in-out group-hover:opacity-75 w-full h-full object-contain"
-      src={image.preview_url || image.url}
-      overrideSrc={image.preview_url || image.url}
+      src={toPublicImageUrl(image.preview_url || image.url)}
+      overrideSrc={toPublicImageUrl(image.preview_url || image.url)}
       alt={image.title}
       width={image.width}
       height={image.height}

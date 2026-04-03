@@ -22,6 +22,7 @@ import { SquarePenIcon } from '~/components/icons/square-pen'
 import { DeleteIcon } from '~/components/icons/delete'
 import { useTranslations } from 'next-intl'
 import { Badge } from '~/components/ui/badge'
+import { toPublicImageUrl } from '~/lib/utils/url'
 
 export default function AlbumList(props : Readonly<HandleProps>) {
   const { data, mutate } = useSwrHydrated(props)
@@ -174,7 +175,7 @@ export default function AlbumList(props : Readonly<HandleProps>) {
               <div className="h-16 w-24 flex-shrink-0 overflow-hidden rounded bg-gray-100">
                 {album.cover ? (
                   <img
-                    src={album.cover}
+                    src={toPublicImageUrl(album.cover)}
                     alt={album.name || '相册封面'}
                     className="h-full w-full object-cover"
                     loading="lazy"

@@ -90,12 +90,8 @@ async function uploadViaPresignedUrl(file: File, type: string, storage: string, 
     return uploadViaFormData(file, type, storage, '', imageId, fileName).then(r => { options?.onProgress?.(100); return r })
   }
 
-  // 3. 获取公开访问 URL
-  const objectJson = await postJson('/api/v1/file/getObjectUrl', { key, storage })
-  if (objectJson?.code !== 200) throw new Error(objectJson?.message || 'Failed to get object URL')
-
   options?.onProgress?.(100)
-  return { code: 200, data: { url: objectJson.data, imageId, fileName, key } }
+  return { code: 200, data: { url: key, imageId, fileName, key } }
 }
 
 // XHR 上传（带进度）
